@@ -58,7 +58,8 @@ defmodule Cognitus.MixProject do
       {:gettext, "~> 0.20"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.1.1"},
-      {:bandit, "~> 1.5"}
+      {:bandit, "~> 1.5"},
+      {:elixir_uuid, "~> 1.2"} # UUID support (used to assign unique id for socket)
     ]
   end
 
