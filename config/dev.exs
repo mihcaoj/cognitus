@@ -3,7 +3,7 @@ import Config
 # Configure your database
 config :cognitus, Cognitus.Repo,
   username: "postgres",
-  password: "postgres",
+  password: System.get_env("PostgreSQLPostgresPassword") || "postgres",
   hostname: "localhost",
   database: "cognitus_dev",
   stacktrace: true,
