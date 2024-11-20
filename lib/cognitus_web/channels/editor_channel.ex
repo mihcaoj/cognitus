@@ -3,7 +3,7 @@ defmodule CognitusWeb.EditorChannel do
   require Logger
 
   # Keep a list of connected peers
-  @peers :ets.new(:peers, [:named_table, :public, read_concurrency: true])
+  @peers :ets.new(:peers, [:named_table, :public, read_concurrency: true]) # TODO pourquoi on l'a defini deux fois ? Egalement dans application.ex
 
   ################################################################################################
   # Join and Leave events
@@ -18,14 +18,16 @@ defmodule CognitusWeb.EditorChannel do
   """
   @impl true
   def join("editor:lobby", _payload, socket) do
-    document = %Cognitus.Document{}
+    {:ok, document} = Cognitus.Document.create_document()
 
-    :ets.insert(@peers, {socket.id})
+    :ets.insert(@peers, {socket.id, document})
 
     # Get the current list of peers
     peers = get_all_peers()
-
     Logger.info("Peers after join: #{inspect(peers)}")
+
+    # Link their CRDT document replicas
+    Cognitus.Document.link_peers_document(document, peers_documents)
 
     # Assign the document to the socket and send the initial peer list to the client
     {:ok, %{socket_id: socket.id, peers: peers}, assign(socket, :document, document)}
@@ -50,9 +52,16 @@ defmodule CognitusWeb.EditorChannel do
 
   # Helper function to retrieve all peers
   # - Fetches the list of all connected peers from the ETS table
-  # - The peer list is stored as tuples `{peer_id}` and flattened into a list of peer IDs
+  # - The @peers list is stored as tuples `{peer_id, document}` and flattened into a list of peer IDs
   defp get_all_peers do
-    :ets.tab2list(@peers) |> Enum.map(fn {peer_id} -> peer_id end)
+    :ets.tab2list(@peers) |> Enum.map(fn {peer_id, _} -> peer_id end)
+  end
+
+  # Helper function to retrieve all peers document
+  # - Fetches the list of all connected peers's documents from the ETS table
+  # - The peer list is stored as tuples `{peer_id, document}` and flattened into a list of documents (CRDT instances)
+  defp get_all_peers do
+    :ets.tab2list(@peers) |> Enum.map(fn {_peer_id, document} -> document end)
   end
 
   ################################################################################################
