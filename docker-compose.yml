@@ -1,0 +1,30 @@
+# Define the services to be managed by Docker Compose
+services:
+  # Define the PostgreSQL database service
+  postgres:
+    # Use the official PostgreSQL Docker image, version 15
+    image: postgres:15
+    
+    # Assign a custom name to the PostgreSQL container
+    container_name: cognitus_postgres
+    
+    # Define environment variables to configure the PostgreSQL instance
+    environment:
+      POSTGRES_USER: postgres       
+      POSTGRES_PASSWORD: postgres    
+      POSTGRES_DB: cognitus_dev      
+    
+    # Expose container port 5432 and map it to host port 5432
+    # This allows the database to be accessed from the host system
+    ports:
+      - "5432:5432"
+    
+    # Define persistent storage for PostgreSQL data
+    # Maps the named volume 'postgres_data' on the host to the container's data directory
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+# Define the named volumes for the services
+volumes:
+  # Named volume to store PostgreSQL data persistently
+  postgres_data:

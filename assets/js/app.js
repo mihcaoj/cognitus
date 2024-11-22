@@ -21,6 +21,7 @@ import "phoenix_html"
 import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
+import { Presence } from "phoenix";
 
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket("/live", Socket, {
@@ -49,8 +50,11 @@ let editor = document.querySelector("#editor");
 let socket = new Socket("/socket", { params: {userToken: "123"} });
 socket.connect();
 
+// Ask for username before the user can access editor (TODO: Random names?)
+let username = prompt("Enter your username:")
+
 // Join the editor channel (editor:lobby)
-let channel = socket.channel("editor:lobby", {});
+let channel = socket.channel("editor:lobby", { username });
 
 // Store WebRTC connections (dictionary with {key: peerID, value: RTCPeerConnection})
 let peerConnections = {};
@@ -59,6 +63,13 @@ let dataChannels = {};
 
 let localSocketId = null; // used later on to prevent applying operations twice locally
 let peer_list = []; // local list of peers in the network
+let presences = {}; // store current presences
+
+/*
+************************************************************
+**************** CHANNEL RELATED FUNCTIONS *****************
+************************************************************
+*/
 
 // Join the channel - establishes a connection to the editor:lobby channel
 channel.join()
@@ -89,7 +100,7 @@ channel.join()
     });
   })
   .receive("error", () => console.log("Unable to join"));
-
+  
 /*
 Handle incoming WebRTC offers
 - Creates a RTCPeerConnection for the sender of the offer
@@ -198,6 +209,12 @@ channel.on("peer_list_updated", (payload) => {
 });
 
 /*
+************************************************************
+******************* WEBRTC FUNCTIONS ***********************
+************************************************************
+*/
+
+/*
 Handle data channels
 - Stores open channels in dataChannels
 - Handles incoming messages and updates to the editor
@@ -244,9 +261,9 @@ Create a new RTCPeerConnection for a peer
 function createPeerConnection(peerId) {
   console.log(`Creating peer connection for peer: ${peerId}`);
 
-  // Define the WebRTC configuration without STUN/TURN servers
+  // Define the WebRTC configuration for STUN/TURN servers
   const configuration = {
-    iceServers: [] // no STUN/TURN servers for LAN
+    iceServers: [{ urls: "stun:stun.l.google.com:19302" }] // google STUN server
   };
 
   // Create a new RTCPeerConnection using the LAN-only configuration
@@ -293,4 +310,53 @@ editor.addEventListener("input", (event) => {
       dataChannel.send(JSON.stringify(peerPayload));
     }
   });
+});
+
+/*
+************************************************************
+******************** PRESENCE FUNCTIONS ********************
+************************************************************
+*/
+
+/*
+Format and render the presences in the UI
+- Converts the "presence" object into an array of [id, presence] for easier iteration
+- Extracts the first metadata entry for each user
+- Creates an HTML list item (<li>) for each user and dynamically applies their assigned color
+- Joins all generated list items into a single string to update the DOM efficiently
+*/
+let renderPresences = (presences) => {
+  const userList = Object.entries(Presence.list(presences)).map(([id, presence]) => {
+    const { username, color } = presence.metas[0];
+
+    return `
+      <li style="color: ${color}">
+        ${username}
+      </li> `;
+  }).join("");
+
+  document.querySelector("#user-list").innerHTML = userList;
+};
+
+/*
+Listen for the initial presence state from the server
+- The "presence_state" event provides the full list of users connected to the channel
+- Syncs the initial state with the local "presences" object
+- Renders the list of users in the UI
+*/
+channel.on("presence_state", (state) => {
+  presences = Presence.syncState(presences, state);
+  renderPresences(presences);
+});
+
+/*
+Listen for updates to the presence state from the server
+- The "presence_diff" event provides updates about users joining or leaving the channel
+- Applies the changes to the local "presences" object
+- Renders the list of users in the UI
+*/
+// Handle presence updates
+channel.on("presence_diff", (diff) => {
+  presences = Presence.syncDiff(presences, diff);
+  renderPresences(presences);
 });
