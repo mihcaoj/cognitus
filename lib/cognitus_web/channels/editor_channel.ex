@@ -16,8 +16,40 @@ defmodule CognitusWeb.EditorChannel do
   - Initializes a shared document for collaboration
   """
   @impl true
-  def join("editor:lobby", payload, socket) do
+  def join("editor:lobby", _payload, socket) do
     document = %Cognitus.Document{}
+
+    # List of famous computer scientist names
+    all_usernames = [
+        "Alan Turing", "Donald Knuth", "Tim Berners-Lee", "John McCarthy",
+        "Edsger Dijkstra", "Grace Hopper", "Claude Shannon", "Linus Torvalds",
+        "John von Neumann", "Barbara Liskov", "Bjarne Stroustrup", "Guido van Rossum",
+        "Vint Cerf", "Dennis Ritchie", "Ken Thompson", "Alan Kay", "Marvin Minsky",
+        "Niklaus Wirth", "Andrew Tanenbaum", "Douglas Engelbart", "Ada Lovelace",
+        "Margaret Hamilton", "Leslie Lamport", "Stephen Wolfram", "James Gosling",
+        "Betty Holberton", "Adele Goldberg", "Larry Page", "Bill Gates"
+      ]
+
+    # - Retrieves the list of usernames currently in use using Presence
+    # - Enum.flat_map iterates through this map and extracts all usernames from the metas list for each user
+    # - The comprehension loop extracts the username key from each metadata map
+    # - do: username collects all extracted usernames in a flat list
+    assigned_usernames =
+      CognitusWeb.Presence.list("editor:lobby")
+      |> Enum.flat_map(fn {_id, %{metas: metas}} -> for %{username: username} <- metas, do: username end)
+
+    # Calculate available usernames
+    available_usernames = all_usernames -- assigned_usernames
+
+    # Assign a username
+    # - If list is empty return an error message
+    # - Otherwise take the head of the list and assign it
+    username =
+      case available_usernames do
+        [] -> Logger.error("No usernames available!")
+
+        [uname | _rest] -> uname
+      end
 
     # Insert the socket ID into the ETS table
     :ets.insert(@peers, {socket.id})
@@ -27,12 +59,13 @@ defmodule CognitusWeb.EditorChannel do
 
     Logger.info("Peers after join: #{inspect(peers)}")
 
-    color = generate_color(socket.id)
+    # Call the helper function to generate a color and store it
+    color = generate_color()
 
     # Track the user's presence
     CognitusWeb.Presence.track(socket, socket.id, %{
-      username: payload["username"] || "anonymous", # Use username from payload or "anonymous" as default
-      color: color, # assign a unique color
+      username: username,
+      color: color,
       joined_at: DateTime.utc_now()
     })
 
@@ -40,7 +73,7 @@ defmodule CognitusWeb.EditorChannel do
     send(self(), :after_join)
 
     # Assign the document to the socket and send the initial peer list to the client
-    {:ok, %{socket_id: socket.id, peers: peers}, assign(socket, :document, document)}
+    {:ok, %{socket_id: socket.id, peers: peers, username: username}, assign(socket, :document, document)}
   end
 
   @doc """
@@ -150,12 +183,9 @@ defmodule CognitusWeb.EditorChannel do
       :ets.tab2list(@peers) |> Enum.map(fn {peer_id} -> peer_id end)
     end
 
-    # Helper function to generate a unique color based on the user's socket ID
-    defp generate_color(socket_id) do
-      :rand.seed(:exsplus, :erlang.phash2(socket_id)) # seed random with the socket_id
-
-      # helper to avoid extremes like white or black to avoid visibility issues
-      adjust = fn -> :rand.uniform(150) + 50 end
+    # Helper function to generate a unique color for the user's username
+    defp generate_color() do
+      adjust = fn -> Enum.random(1..255) end
 
       # generate RGB values in the adjusted range
       r = adjust.()

@@ -50,11 +50,8 @@ let editor = document.querySelector("#editor");
 let socket = new Socket("/socket", { params: {userToken: "123"} });
 socket.connect();
 
-// Ask for username before the user can access editor (TODO: Random names?)
-let username = prompt("Enter your username:")
-
 // Join the editor channel (editor:lobby)
-let channel = socket.channel("editor:lobby", { username });
+let channel = socket.channel("editor:lobby", {});
 
 // Store WebRTC connections (dictionary with {key: peerID, value: RTCPeerConnection})
 let peerConnections = {};
