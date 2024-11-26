@@ -7,8 +7,9 @@ defmodule Cognitus.Application do
 
   @impl true
   def start(_type, _args) do
-    # Create the ETS table for peers
+    # Create the ETS tables for peers and their document replica
     :ets.new(:peers, [:named_table, :public, :set])
+    :ets.new(:documents, [:named_table, :public, :set])
 
     children = [
       CognitusWeb.Telemetry,
