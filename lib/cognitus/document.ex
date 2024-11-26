@@ -14,53 +14,61 @@ defmodule Cognitus.Document do
   Create a OR-Set CRDT document data structure.
   """
   def create_document() do
-    {:ok, document} = DeltaCrdt.start_link(DeltaCrdt.AWLWWMap)
+    DeltaCrdt.start_link(DeltaCrdt.AWLWWMap)
   end
 
-  @spec link_peers_document(document(), [document()]) :: :ok
+  @spec link_with_peers_document(document(), [document()]) :: :ok
   @doc """
   Link replicas of two peers
   """
-  def link_peers_documents(current_peer_document, other_peer_documents_list) do
-    DeltaCrdt.set_neighbours(current_peer_document, [another_peer_document])
+  def link_with_peers_document(current_peer_document, other_peer_documents_list) do
+    DeltaCrdt.set_neighbours(current_peer_document, other_peer_documents_list)
   end
 
-  @spec insert(document(), ch(), ch(), integer(), char()) :: document()
+  @spec insert(document(), integer(), integer(), char()) :: document()
   @doc """
-  Add a character to text document
+  Add a character to text document given its physical position.
   """
-  def insert(document, {prev_ch_id, _prev_ch_value}, {next_ch_id, _next_ch_value}, peer_id, ch_value) do
+  def insert(document, position, peer_id, ch_value) do
+    prev_ch_id = if position > 1, do: get_ch_id_at_position(document, position - 1), else: nil
+    next_ch_id = get_ch_id_at_position(document, position)
     ch_id = generate_ch_id(peer_id, prev_ch_id, next_ch_id)
     DeltaCrdt.put(document, ch_id, ch_value)
+    IO.inspect(document)
   end
 
   @spec delete(document(), ch_id()) :: document()
   @doc """
-    Delete a character by its ID
+  Delete a character from text document given its physical position
   """
-  def delete(document, ch_id) do
-    DeltaCrdt.remove(document, ch_id)
+  def delete(document, position) do
+    ch_id = get_ch_id_at_position(document, position)
+    DeltaCrdt.delete(document, ch_id)
   end
 
   @spec generate_ch_id(integer(), ch_id(), ch_id()) :: ch_id()
-  @doc """
-  Generate character unique identifier {logical_position, peer_id} for which
-  logical position is calculated based on previous and next characters.
-  If character:
-  - is first character to be inserted (no predecessor, no successor), it has logical position 100
-  - is before first character (no predecessor), it takes logical position successor_logical_position - 10
-  - is after last character (no successor), it takes logical position predecessor_logical_position + 10
-  - is between two characters, its logical position is the average of both
-
-  Parameters:
-  - peer_id
-  - predecessor character's ch_id
-  - successor character's ch_id
-  """
+  # Generate character unique identifier {logical_position, peer_id} for which
+  # logical position is calculated based on previous and next characters.
+  # If character:
+  # - is first character to be inserted (no predecessor, no successor), it has logical position 100
+  # - is before first character (no predecessor), it takes logical position successor_logical_position - 10
+  # - is after last character (no successor), it takes logical position predecessor_logical_position + 10
+  # - is between two characters, its logical position is the average of both
+  # Parameters:
+  # - peer_id
+  # - predecessor character's ch_id
+  # - successor character's ch_id
   defp generate_ch_id(peer_id, nil, nil), do: {100, peer_id}
-  defp generate_ch_id(peer_id, nil, {next_log_pos, _} = next_id), do: {next_log_pos + 10, peer_id}
-  defp generate_ch_id(peer_id, {prev_log_pos, _} = prev_id, nil), do: {prev_log_pos - 10, peer_id}
-  defp generate_ch_id(peer_id, {prev_log_pos, _} = prev_id, {next_log_pos, _} = next_id) do
-    {(prev_log_post + next_log_pos)/2, peer_id}
+  defp generate_ch_id(peer_id, nil, {next_log_pos, _}), do: {next_log_pos + 10, peer_id}
+  defp generate_ch_id(peer_id, {prev_log_pos, _}, nil), do: {prev_log_pos - 10, peer_id}
+  defp generate_ch_id(peer_id, {prev_log_pos, _}, {next_log_pos, _}) do
+    {(prev_log_pos + next_log_pos)/2, peer_id}
   end
-end
+
+  @spec get_ch_id_at_position(document(), integer()) :: ch_id()
+  # Retrieve identifier of a character given its position.
+  defp get_ch_id_at_position(document, position) do
+    sorted_ch_ids = DeltaCrdt.read(document) |> Map.keys() |> Enum.sort()
+    Enum.at(sorted_ch_ids, position)
+  end
+ end
