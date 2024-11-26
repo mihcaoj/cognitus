@@ -2,9 +2,6 @@ defmodule CognitusWeb.EditorChannel do
   use CognitusWeb, :channel
   require Logger
 
-  # Keep a list of connected peers
-  @peers :ets.new(:peers, [:named_table, :public, read_concurrency: true]) # TODO pourquoi on l'a defini deux fois ? Egalement dans application.ex
-
   ################################################################################################
   # Join and Leave events
   ################################################################################################
@@ -20,17 +17,22 @@ defmodule CognitusWeb.EditorChannel do
   def join("editor:lobby", _payload, socket) do
     {:ok, document} = Cognitus.Document.create_document()
 
-    :ets.insert(@peers, {socket.id, document})
+    :ets.insert(:peers, {socket.id})
 
     # Get the current list of peers
-    peers = get_all_peers()
+    other_peers = get_all_peers()
     Logger.info("Peers after join: #{inspect(peers)}")
 
     # Link their CRDT document replicas
-    Cognitus.Document.link_peers_document(document, peers_documents)
+    peers_documents = get_all_documents()
+    :ets.insert(:documents, {document})
+    Cognitus.Document.link_with_peers_document(document, peers_documents)
 
     # Assign the document to the socket and send the initial peer list to the client
     {:ok, %{socket_id: socket.id, peers: peers}, assign(socket, :document, document)}
+
+    # Get already existing text
+    # TODO: if not first peer (peers_documents not empty), synchronize document with one of the peers document
   end
 
   @doc """
@@ -41,27 +43,30 @@ defmodule CognitusWeb.EditorChannel do
   """
   @impl true
   def terminate(_reason, socket) do
-    :ets.delete(@peers, socket.id)
+    :ets.delete(:peers, socket.id)
+    :ets.delete(:documents, socket.assigns[:document])
 
     peers = get_all_peers()
     broadcast!(socket, "peer_list_updated", %{"peers" => peers})
-
     Logger.info("Peers after leave: #{inspect(peers)}")
+
+    documents = get_all_documents()
+    broadcast!(socket, "document_list_updated", %{"documents" => documents})
     :ok
   end
 
   # Helper function to retrieve all peers
   # - Fetches the list of all connected peers from the ETS table
-  # - The @peers list is stored as tuples `{peer_id, document}` and flattened into a list of peer IDs
+  # - The @peers list is stored as tuples `{peer_id}` and flattened into a list of peer IDs
   defp get_all_peers do
-    :ets.tab2list(@peers) |> Enum.map(fn {peer_id, _} -> peer_id end)
+    :ets.tab2list(:peers) |> Enum.map(fn {peer_id} -> peer_id end)
   end
 
   # Helper function to retrieve all peers document
   # - Fetches the list of all connected peers's documents from the ETS table
-  # - The peer list is stored as tuples `{peer_id, document}` and flattened into a list of documents (CRDT instances)
-  defp get_all_peers do
-    :ets.tab2list(@peers) |> Enum.map(fn {_peer_id, document} -> document end)
+  # - The peer list is stored as tuples `{ document}` and flattened into a list of documents (CRDT instances)
+  defp get_all_documents do
+    :ets.tab2list(:documents) |> Enum.map(fn {document} -> document end)
   end
 
   ################################################################################################
@@ -125,6 +130,19 @@ defmodule CognitusWeb.EditorChannel do
     end
     {:noreply, socket}
   end
+  ################################################################################################
+  # Insertion and deletion operations
+  ################################################################################################
+  # Reception of "insertion" event - A character is added
+  @impl true
+  def handle_in("insert", %{"ch_value" => ch_value, "position" => position}, socket) do
+    peer_id = socket.id
+    document = socket.assigns[:document]
+    Cognitus.Document.insert(document, position, peer_id, ch_value)
+  end
+  channel.push("insert", { prev_id: prevId, next_id: nextId, peer_id: peerId, char })
+         .receive("ok", () => console.log("Insert sent successfully"))
+                                                                                                    .receive("error", (reason) => console.error("Insert failed", reason));
 
   ################################################################################################
   # Automatically generated - not modified
