@@ -3,8 +3,6 @@ defmodule CognitusWeb.EditorChannel do
   require Logger
   alias CognitusWeb.UsernameService
 
-  @type username :: UsernamesService.username()
-
   @peers :peers
 
   #########################################################################
@@ -12,47 +10,42 @@ defmodule CognitusWeb.EditorChannel do
   #########################################################################
 
   @doc """
-  Handles a new client joining the "editor:lobby" channel.
-
-  - Adds the client's socket ID to the global peer list stored in ETS (Erlang Term Storage)
-  - Fetches the updated list of peers and sends it to the client
-  - Initializes a shared document for collaboration
+  Handles a new client joining the "editor:lobby" channel
+  and returning information about peer id, document and presence.
   """
   @impl true
   def join("editor:lobby", _payload, socket) do
-    {:ok, document} = Cognitus.Document.create_document()
-
-    {:ok, username, username_color} = UsernameService.generate_username()
-
-    # Insert the socket ID into the ETS table
+    # Peer handling :
+    #  - Retrieve already existing peers
+    #  - Insert socket ID as peer ID into the ETS table
+    current_peer = socket.id
     :ets.insert(@peers, {socket.id})
+    all_peers = get_all_peers()
 
-    # Get the current list of peers
-    other_peers = get_all_peers()
-    Logger.info("Peers after join: #{inspect(peers)}")
+    # Document handling :
+    #   - Create a new document for current peer
+    #   - Link it to other peers document to enable synchronization
+    other_peers_documents = get_all_documents()
+    {:ok, current_document} = Cognitus.Document.create_document()
+    :ets.insert(:documents, {current_document})
+    Cognitus.Document.link_with_peers_document(current_document, peers_documents)
 
-    # Link their CRDT document replicas
-    peers_documents = get_all_documents()
-    :ets.insert(:documents, {document})
-    Cognitus.Document.link_with_peers_document(document, peers_documents)
-
-    # Call the helper function to generate a color and store it
-    color = generate_color()
-
-    # Track the user's presence
+    # Presence handling:
+    #   - Generate a username with a corresponding color
+    #   - Track the user's presence
+    #   - Notify the channel to send the presence state to the client
+    {:ok, username, username_color} = UsernameService.generate_username()
     CognitusWeb.Presence.track(socket, socket.id, %{
       username: username,
       color: color,
       joined_at: DateTime.utc_now()
     })
-
-    # Notify the channel to send the presence state to the client
     send(self(), :after_join)
 
-    # Assign the document to the socket and send the initial peer list to the client
-    {:ok, %{socket_id: socket.id, peers: peers, username: username}, assign(socket, :document, document)}
-    # Get already existing text
-    # TODO: if not first peer (peers_documents not empty), synchronize document with one of the peers document
+    Logger.info("Peer #{inspect(current_peer)} has joined \'editor:lobby\' channel. Peers after join: #{inspect(all_peers)}.")
+
+    # Assign the document to the socket and send the initial peer list and current username to the client
+    {:ok, %{socket_id: socket.id, peers: all_peers, username: username}, assign(socket, :document, current_document)}
   end
 
   @doc """
@@ -63,30 +56,23 @@ defmodule CognitusWeb.EditorChannel do
   """
   @impl true
   def terminate(_reason, socket) do
-    :ets.delete(:peers, socket.id)
-    :ets.delete(:documents, socket.assigns[:document])
-
-    peers = get_all_peers()
+    # Peer handling :
+    #   - Delete current peer from peers list
+    #   - Broadcast new peers list to all clients subscribed to the channel
+    current_peer = socket.id
+    :ets.delete(:peers, current_peer)
+    remaining_peers = get_all_peers()
     broadcast!(socket, "peer_list_updated", %{"peers" => peers})
-    Logger.info("Peers after leave: #{inspect(peers)}")
+    Logger.info("Peer #{inspect(current_peer)} has left \'editor:lobby\' channel. Peers after leaving: #{inspect(remaining_peers)}.")
 
+    # Document handling :
+    #   - Delete current peer's document from documents list
+    #   - Broadcast new documents list to all clients subscribed to the channel
+    :ets.delete(:documents, socket.assigns[:document])
     documents = get_all_documents()
     broadcast!(socket, "document_list_updated", %{"documents" => documents})
+
     :ok
-  end
-
-  # Helper function to retrieve all peers
-  # - Fetches the list of all connected peers from the ETS table
-  # - The @peers list is stored as tuples `{peer_id}` and flattened into a list of peer IDs
-  defp get_all_peers do
-    :ets.tab2list(:peers) |> Enum.map(fn {peer_id} -> peer_id end)
-  end
-
-  # Helper function to retrieve all peers document
-  # - Fetches the list of all connected peers's documents from the ETS table
-  # - The peer list is stored as tuples `{ document}` and flattened into a list of documents (CRDT instances)
-  defp get_all_documents do
-    :ets.tab2list(:documents) |> Enum.map(fn {document} -> document end)
   end
 
   @doc """
@@ -99,7 +85,7 @@ defmodule CognitusWeb.EditorChannel do
   def handle_info(:after_join, socket) do
     push(socket, "presence_state", CognitusWeb.Presence.list(socket.topic))
 
-    Logger.info("sent presence to #{socket.id}")
+    Logger.info("Sent presence to #{socket.id}")
 
     {:noreply, socket}
   end
@@ -174,23 +160,24 @@ defmodule CognitusWeb.EditorChannel do
     peer_id = socket.id
     document = socket.assigns[:document]
     Cognitus.Document.insert(document, position, peer_id, ch_value)
-
-  # TODO Analyse why I copied this here ... channel.push("insert", { prev_id: prevId, next_id: nextId, peer_id: peerId, char })
-   #      .receive("ok", () => console.log("Insert sent successfully"))
-   #      .receive("error", (reason) => console.error("Insert failed", reason));
   end
 
   #########################################################################
   ######################### HELPER FUNCTIONS  #############################
   #########################################################################
 
-     # Helper function to retrieve all peers
-    # - Fetches the list of all connected peers from the ETS table
-    # - The peer list is stored as tuples `{peer_id}` and flattened into a list of peer IDs
-    defp get_all_peers do
-      :ets.tab2list(@peers) |> Enum.map(fn {peer_id} -> peer_id end)
-    end
+  # Helper function to retrieve all peers
+  # - Fetches the list of all connected peers from the ETS table
+  # - The peer list is stored as tuples `{peer_id}` and flattened into a list of peer IDs
+  defp get_all_peers do
+    :ets.tab2list(@peers) |> Enum.map(fn {peer_id} -> peer_id end)
+  end
 
-
+  # Helper function to retrieve all peers document
+  # - Fetches the list of all connected peers's documents from the ETS table
+  # - The peer list is stored as tuples `{ document}` and flattened into a list of documents (CRDT instances)
+  defp get_all_documents do
+    :ets.tab2list(:documents) |> Enum.map(fn {document} -> document end)
+  end
 
 end
