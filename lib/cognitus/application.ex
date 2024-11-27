@@ -8,8 +8,8 @@ defmodule Cognitus.Application do
   @impl true
   def start(_type, _args) do
     # Create the ETS tables for peers and their document replica
-    :ets.new(:peers, [:named_table, :public, :set])
-    :ets.new(:documents, [:named_table, :public, :set])
+    :ets.new(:peers, [:named_table, :public, :set, read_concurrency: true])
+    :ets.new(:documents, [:named_table, :public, :set, read_concurrency: true])
 
     children = [
       CognitusWeb.Telemetry,
@@ -21,7 +21,9 @@ defmodule Cognitus.Application do
       # Start a worker by calling: Cognitus.Worker.start_link(arg)
       # {Cognitus.Worker, arg},
       # Start to serve requests, typically the last entry
-      CognitusWeb.Endpoint
+      CognitusWeb.Endpoint,
+      # Start the Presence tracker
+      CognitusWeb.Presence,
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

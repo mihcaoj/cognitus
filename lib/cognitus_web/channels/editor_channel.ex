@@ -1,10 +1,15 @@
 defmodule CognitusWeb.EditorChannel do
   use CognitusWeb, :channel
   require Logger
+  alias CognitusWeb.UsernameService
 
-  ################################################################################################
-  # Join and Leave events
-  ################################################################################################
+  @type username :: UsernamesService.username()
+
+  @peers :peers
+
+  #########################################################################
+  ######################### JOIN AND LEAVE EVENTS #########################
+  #########################################################################
 
   @doc """
   Handles a new client joining the "editor:lobby" channel.
@@ -17,7 +22,10 @@ defmodule CognitusWeb.EditorChannel do
   def join("editor:lobby", _payload, socket) do
     {:ok, document} = Cognitus.Document.create_document()
 
-    :ets.insert(:peers, {socket.id})
+    {:ok, username, username_color} = UsernameService.generate_username()
+
+    # Insert the socket ID into the ETS table
+    :ets.insert(@peers, {socket.id})
 
     # Get the current list of peers
     other_peers = get_all_peers()
@@ -28,9 +36,21 @@ defmodule CognitusWeb.EditorChannel do
     :ets.insert(:documents, {document})
     Cognitus.Document.link_with_peers_document(document, peers_documents)
 
-    # Assign the document to the socket and send the initial peer list to the client
-    {:ok, %{socket_id: socket.id, peers: peers}, assign(socket, :document, document)}
+    # Call the helper function to generate a color and store it
+    color = generate_color()
 
+    # Track the user's presence
+    CognitusWeb.Presence.track(socket, socket.id, %{
+      username: username,
+      color: color,
+      joined_at: DateTime.utc_now()
+    })
+
+    # Notify the channel to send the presence state to the client
+    send(self(), :after_join)
+
+    # Assign the document to the socket and send the initial peer list to the client
+    {:ok, %{socket_id: socket.id, peers: peers, username: username}, assign(socket, :document, document)}
     # Get already existing text
     # TODO: if not first peer (peers_documents not empty), synchronize document with one of the peers document
   end
@@ -69,10 +89,23 @@ defmodule CognitusWeb.EditorChannel do
     :ets.tab2list(:documents) |> Enum.map(fn {document} -> document end)
   end
 
-  ################################################################################################
-  # WebRTC signaling handlers
-  ################################################################################################
+  @doc """
+  # Push the current presence state to the client
 
+  - Retrieves the list of current presences for the channel/topic
+  - Send this list to the client via "presence_state" event
+  """
+  @impl true
+  def handle_info(:after_join, socket) do
+    push(socket, "presence_state", CognitusWeb.Presence.list(socket.topic))
+
+    Logger.info("sent presence to #{socket.id}")
+
+    {:noreply, socket}
+  end
+  #########################################################################
+  ######################### WEBRTC SIGNALING HANDLERS #####################
+  #########################################################################
   @doc """
   Handles incoming WebRTC offer from a client.
 
@@ -83,6 +116,7 @@ defmodule CognitusWeb.EditorChannel do
   - `offer`: The WebRTC SDP offer from the client
   - `to`: The target peer's socket ID
   """
+  @impl true
   def handle_in("webrtc_offer", %{"offer" => offer, "to" => peer_id}, socket) do
     Logger.info("Received WebRTC offer from #{socket.id} for peer #{peer_id}")
 
@@ -102,6 +136,7 @@ defmodule CognitusWeb.EditorChannel do
   # Parameters:
   # - `answer`: The WebRTC SDP answer from the client
   # - `to`: The target peer's socket ID
+  @impl true
   def handle_in("webrtc_answer", %{"answer" => answer, "to" => peer_id}, socket) do
     Logger.info("Received WebRTC answer from #{socket.id} for peer #{peer_id}")
 
@@ -113,13 +148,13 @@ defmodule CognitusWeb.EditorChannel do
     {:noreply, socket}
   end
 
-
   # Handles incoming ICE candidate from a client.
   # - ICE candidates are sent by peers to share network information (used to establish the connection)
   #
   # Parameters:
   # - `candidate`: The ICE candidate from the client
   # - `to`: The target peer's socket ID
+  @impl true
   def handle_in("ice_candidate", %{"candidate" => candidate, "to" => peer_id}, socket) do
     Logger.info("Received ICE candidate from #{socket.id} for peer #{peer_id}")
 
@@ -139,32 +174,23 @@ defmodule CognitusWeb.EditorChannel do
     peer_id = socket.id
     document = socket.assigns[:document]
     Cognitus.Document.insert(document, position, peer_id, ch_value)
-  end
-  channel.push("insert", { prev_id: prevId, next_id: nextId, peer_id: peerId, char })
-         .receive("ok", () => console.log("Insert sent successfully"))
-                                                                                                    .receive("error", (reason) => console.error("Insert failed", reason));
 
-  ################################################################################################
-  # Automatically generated - not modified
-  ################################################################################################
-
-  # Channels can be used in a request/response fashion
-  # by sending replies to requests from the client
-  @impl true
-  def handle_in("ping", payload, socket) do
-    {:reply, {:ok, payload}, socket}
+  # TODO Analyse why I copied this here ... channel.push("insert", { prev_id: prevId, next_id: nextId, peer_id: peerId, char })
+   #      .receive("ok", () => console.log("Insert sent successfully"))
+   #      .receive("error", (reason) => console.error("Insert failed", reason));
   end
 
-  # It is also common to receive messages from the client and
-  # broadcast to everyone in the current topic (editor:lobby).
-  @impl true
-  def handle_in("shout", payload, socket) do
-    broadcast(socket, "shout", payload)
-    {:noreply, socket}
-  end
+  #########################################################################
+  ######################### HELPER FUNCTIONS  #############################
+  #########################################################################
 
-  # Add authorization logic here as required.
-  #defp authorized?(_payload) do
-  #  true
-  #end
+     # Helper function to retrieve all peers
+    # - Fetches the list of all connected peers from the ETS table
+    # - The peer list is stored as tuples `{peer_id}` and flattened into a list of peer IDs
+    defp get_all_peers do
+      :ets.tab2list(@peers) |> Enum.map(fn {peer_id} -> peer_id end)
+    end
+
+
+
 end
