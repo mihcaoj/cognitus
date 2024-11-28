@@ -30,7 +30,7 @@ defmodule CognitusWeb.UsernameService do
       CognitusWeb.Presence.list("editor:lobby")
       |> Enum.flat_map(fn {_id, %{metas: metas}} -> for %{username: username} <- metas, do: username end)
 
-    # 2. Calculate available usernamess
+    # 2. Calculate available usernames
     available_usernames = all_usernames() -- assigned_usernames
 
     # 3. Assign a username and a color

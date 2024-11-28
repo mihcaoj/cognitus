@@ -1,10 +1,15 @@
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
 import "phoenix_html"
 // Establish Phoenix Socket and LiveView configuration.
-import {Socket} from "phoenix"
+import { Socket, Presence } from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
-import { Presence } from "phoenix";
+
+/*
+************************************************************
+**************** AUTOMATICALLY GENERATED *******************
+************************************************************
+*/
 
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket("/live", Socket, {
@@ -22,6 +27,12 @@ liveSocket.connect()
 
 window.liveSocket = liveSocket
 
+/*
+************************************************************
+**************** INITIALIZATION AND SETUP ******************
+************************************************************
+*/
+
 // DOM reference for the text editor
 let editor = document.querySelector("#editor");
 
@@ -34,9 +45,11 @@ let channel = socket.channel("editor:lobby", {});
 
 // Store WebRTC connections (dictionary with {key: peerID, value: RTCPeerConnection})
 let peerConnections = {};
+
 // Store WebRTC data channels (dictionary with {key: peerId, value: RTCDataChannel})
 let dataChannels = {};
 
+// Initialize variables for local socket ID, list of peers, and user presence
 let localSocketId = null; // used later on to prevent applying operations twice locally
 let peer_list = []; // local list of peers in the network
 let presences = {}; // store current presences
