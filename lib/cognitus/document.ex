@@ -1,6 +1,6 @@
 defmodule Cognitus.Document do
   @moduledoc """
-  Document is structured as a `AWLWWMAP` where
+  Document is structured as a `AWLWWMap`, where
   keys are character's id {logical_position, peer_id}
   and values are the characters' value.
   Order of characters is given by character's id.
@@ -44,6 +44,14 @@ defmodule Cognitus.Document do
   def delete(document, position) do
     ch_id = get_ch_id_at_position(document, position)
     DeltaCrdt.delete(document, ch_id)
+  end
+
+  @spec update_text_from_document(document()) :: String.t()
+  # Convert the CRDT document into the corresponding text
+  def update_text_from_document(document) do
+    sorted_ch_ids = DeltaCrdt.read(document) |> Map.keys() |> Enum.sort()
+    list_of_ch = Enum.map(sorted_ch_ids, fn ch_id -> DeltaCrdt.get(document, ch_id) end)
+    Enum.join(list_of_ch)
   end
 
   @spec generate_ch_id(integer(), ch_id(), ch_id()) :: ch_id()
