@@ -1,4 +1,5 @@
 defmodule CognitusWeb.UsernameService do
+  require Logger
   @moduledoc """
   Service handling username generation and associated color.
   """
@@ -29,8 +30,8 @@ defmodule CognitusWeb.UsernameService do
       CognitusWeb.Presence.list("editor:lobby")
       |> Enum.flat_map(fn {_id, %{metas: metas}} -> for %{username: username} <- metas, do: username end)
 
-    # 2. Calculate available usernames
-    available_usernames = all_usernames -- assigned_usernames
+    # 2. Calculate available usernamess
+    available_usernames = all_usernames() -- assigned_usernames
 
     # 3. Assign a username and a color
     #   - If list is empty return an error message

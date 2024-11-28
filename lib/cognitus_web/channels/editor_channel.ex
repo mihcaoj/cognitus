@@ -28,16 +28,16 @@ defmodule CognitusWeb.EditorChannel do
     other_peers_documents = get_all_documents()
     {:ok, current_document} = Cognitus.Document.create_document()
     :ets.insert(:documents, {current_document})
-    Cognitus.Document.link_with_peers_document(current_document, peers_documents)
+    Cognitus.Document.link_with_peers_document(current_document, other_peers_documents)
 
     # Presence handling:
     #   - Generate a username with a corresponding color
     #   - Track the user's presence
     #   - Notify the channel to send the presence state to the client
-    {:ok, username, username_color} = UsernameService.generate_username()
+    {username, username_color} = UsernameService.generate_username()
     CognitusWeb.Presence.track(socket, socket.id, %{
       username: username,
-      color: color,
+      color: username_color,
       joined_at: DateTime.utc_now()
     })
     send(self(), :after_join)
@@ -62,7 +62,7 @@ defmodule CognitusWeb.EditorChannel do
     current_peer = socket.id
     :ets.delete(:peers, current_peer)
     remaining_peers = get_all_peers()
-    broadcast!(socket, "peer_list_updated", %{"peers" => peers})
+    broadcast!(socket, "peer_list_updated", %{"peers" => remaining_peers})
     Logger.info("Peer #{inspect(current_peer)} has left \'editor:lobby\' channel. Peers after leaving: #{inspect(remaining_peers)}.")
 
     # Document handling :
