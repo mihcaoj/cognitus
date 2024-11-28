@@ -44,8 +44,9 @@ defmodule CognitusWeb.EditorChannel do
 
     Logger.info("Peer #{inspect(current_peer)} has joined \'editor:lobby\' channel. Peers after join: #{inspect(all_peers)}.")
 
+    current_text = Cognitus.Document.update_text_from_document(current_document)
     # Assign the document to the socket and send the initial peer list and current username to the client
-    {:ok, %{socket_id: socket.id, peers: all_peers, username: username}, assign(socket, :document, current_document)}
+    {:ok, %{socket_id: socket.id, peers: all_peers, username: username, text: current_text}, assign(socket, :document, current_document)}
   end
 
   @doc """
@@ -154,12 +155,26 @@ defmodule CognitusWeb.EditorChannel do
   ################################################################################################
   # Insertion and deletion operations
   ################################################################################################
-  # Reception of "insertion" event - A character is added
+  # Treat an "insertion" event - A character is added
   @impl true
-  def handle_in("insert", %{"ch_value" => ch_value, "position" => position}, socket) do
-    peer_id = socket.id
-    document = socket.assigns[:document]
-    Cognitus.Document.insert(document, position, peer_id, ch_value)
+  def handle_in("insert", %{"source" => source, "ch_value" => ch_value, "position" => position}, socket) do
+    current_peer_id = socket.id
+    if source==current_peer_id do
+       document = socket.assigns[:document]
+       Cognitus.Document.insert(document, position, current_peer_id, ch_value)
+       Cognitus.Document.update_text_from_document(document)
+    end
+  end
+
+  # Treat a "deletion" event - A character is deleted
+  @impl true
+  def handle_in("delete", %{"source" => source, "position" => position}, socket) do
+    current_peer_id = socket.id
+    if source == current_peer_id do
+      document = socket.assigns[:document]
+      Cognitus.Document.delete(document, position)
+      Cognitus.Document.update_text_from_document(document)
+    end
   end
 
   #########################################################################
