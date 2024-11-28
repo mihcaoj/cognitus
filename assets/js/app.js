@@ -52,6 +52,7 @@ let dataChannels = {};
 // Initialize variables for local socket ID, list of peers, and user presence
 let localSocketId = null; // used later on to prevent applying operations twice locally
 let peer_list = []; // local list of peers in the network
+let current_peer_id = null; // peer_id (socket id) of current process
 let presences = {}; // store current presences
 
 /*
@@ -62,11 +63,12 @@ let presences = {}; // store current presences
 
 // Join the channel - establishes a connection to the editor:lobby channel
 channel.join()
-  .receive("ok", ({ socket_id, peers }) => {
-    console.log("Joined succesfully");
-    localSocketId = socket_id; // save the local socket id
-    console.log("Available peers:", peers)
+  .receive("ok", ({ socket_id, peers, username, text }) => {
+    console.log(username, " joined successfully in front-end");
+    current_peer_id = socket_id; // save the local socket id as peer id
     peer_list = peers; // update the list of peers
+    console.log("Available peers:", peers)
+
     
     // Iterate over all peers and connect
     peer_list.forEach((peerId) => {
@@ -87,6 +89,9 @@ channel.join()
         peerConnections[peerId] = peerConnection;
       }
     });
+
+    // TODO Initiate document on frontend
+    editor.value = text
   })
   .receive("error", () => console.log("Unable to join"));
   
@@ -282,23 +287,43 @@ function createPeerConnection(peerId) {
 }
 
 /*
+************************************************************
+********************* EDITOR FUNCTIONS *********************
+************************************************************
+*/
+
+/*
 Capture the changes in the editor and broadcast them to peers
 - Sends insert or delete events via RTCDataChannel
 */
 editor.addEventListener("input", (event) => {
-  let char = event.data; // inserted char
-  let position = editor.selectionStart - 1; // cursor position before input
+  let ch_value = event.data; // inserted char
+  let cursor_position = editor.selectionStart; // cursor position before input
 
-  // Broadcast changes to all connected peers
-  Object.values(dataChannels).forEach((dataChannel) => {
-    if (dataChannel.readyState === "open") {
-      let peerPayload = char
-        ? { type: "insert", id: Date.now(), char: char, position: position }
-        : { type: "delete", id: Date.now(), position: editor.selectionStart };
+  if (ch_value != null){
+    // Signal insertion of character to backend processes
+    channel.push("insert", {
+      source: current_peer_id,
+      ch_value: ch_value,
+      position: cursor_position-1
+    })
+  } else {
+    // Signal deletion of character to backend processes
+    channel.push("delete", {
+      source: current_peer_id,
+      position: cursor_position
+    })
+  }
 
-      dataChannel.send(JSON.stringify(peerPayload));
-    }
-  });
+  // TODO determiner si nécessaire
+  // Object.values(dataChannels).forEach((dataChannel) => {
+  //   if (dataChannel.readyState === "open") {
+  //     let peerPayload = ch_value
+  //         ? { type: "insert", ch_value: ch_value, position: position }
+  //         : { type: "delete", position: editor.selectionStart };
+  //     dataChannel.send(JSON.stringify(peerPayload));
+  //   }
+  // });
 });
 
 /*
