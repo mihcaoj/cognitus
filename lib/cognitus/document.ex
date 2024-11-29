@@ -1,4 +1,5 @@
 defmodule Cognitus.Document do
+  require Logger
   @moduledoc """
   Document is structured as a `AWLWWMap`, where
   keys are character's id {logical_position, peer_id}
@@ -23,6 +24,7 @@ defmodule Cognitus.Document do
   """
   def link_with_peers_document(current_peer_document, other_peer_documents_list) do
     DeltaCrdt.set_neighbours(current_peer_document, other_peer_documents_list)
+    Logger.debug("Linked CRDT with peers: #{inspect(other_peer_documents_list)}")
   end
 
   @spec insert(document(), integer(), integer(), char()) :: document()
@@ -49,7 +51,12 @@ defmodule Cognitus.Document do
   @spec update_text_from_document(document()) :: String.t()
   # Convert the CRDT document into the corresponding text
   def update_text_from_document(document) do
-    sorted_ch_ids = DeltaCrdt.read(document) |> Map.keys() |> Enum.sort()
+    #sorted_ch_ids = DeltaCrdt.read(document) |> Map.keys() |> Enum.sort()
+    sorted_ch_ids =
+      document
+      |> DeltaCrdt.to_map()
+      |> Map.keys()
+      |> Enum.sort()
     list_of_ch = Enum.map(sorted_ch_ids, fn ch_id -> DeltaCrdt.get(document, ch_id) end)
     Enum.join(list_of_ch)
   end
@@ -76,7 +83,12 @@ defmodule Cognitus.Document do
   @spec get_ch_id_at_position(document(), integer()) :: ch_id()
   # Retrieve identifier of a character given its position.
   defp get_ch_id_at_position(document, position) do
-    sorted_ch_ids = DeltaCrdt.read(document) |> Map.keys() |> Enum.sort()
+    #sorted_ch_ids = DeltaCrdt.read(document) |> Map.keys() |> Enum.sort()
+    sorted_ch_ids =
+      document
+      |> DeltaCrdt.to_map()
+      |> Map.keys()
+      |> Enum.sort()
     Enum.at(sorted_ch_ids, position)
   end
  end

@@ -69,7 +69,6 @@ channel.join()
     peer_list = peers; // update the list of peers
     console.log("Available peers:", peers)
 
-    
     // Iterate over all peers and connect
     peer_list.forEach((peerId) => {
       if (peerId !== localSocketId) {
@@ -92,6 +91,7 @@ channel.join()
 
     // TODO Initiate document on frontend
     editor.value = text
+    console.log("Current document state:", text)
   })
   .receive("error", () => console.log("Unable to join"));
   

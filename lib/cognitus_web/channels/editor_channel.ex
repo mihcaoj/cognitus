@@ -29,6 +29,7 @@ defmodule CognitusWeb.EditorChannel do
     {:ok, current_document} = Cognitus.Document.create_document()
     :ets.insert(:documents, {current_document})
     Cognitus.Document.link_with_peers_document(current_document, other_peers_documents)
+    Logger.debug("CRDT linked with other documents: #{inspect(other_peers_documents)}")
 
     # Presence handling:
     #   - Generate a username with a corresponding color
@@ -45,6 +46,7 @@ defmodule CognitusWeb.EditorChannel do
     Logger.info("Peer #{inspect(current_peer)} has joined \'editor:lobby\' channel. Peers after join: #{inspect(all_peers)}.")
 
     current_text = Cognitus.Document.update_text_from_document(current_document)
+    Logger.debug("Sending current document text to new peer: #{inspect(current_text)}")
     # Assign the document to the socket and send the initial peer list and current username to the client
     {:ok, %{socket_id: socket.id, peers: all_peers, username: username, text: current_text}, assign(socket, :document, current_document)}
   end
@@ -70,7 +72,7 @@ defmodule CognitusWeb.EditorChannel do
     #   - Delete current peer's document from documents list
     #   - Broadcast new documents list to all clients subscribed to the channel
     :ets.delete(:documents, socket.assigns[:document])
-    documents = get_all_documents()
+    documents = get_all_documents() |> Enum.map(fn doc -> %{id: inspect(doc)} end)
     broadcast!(socket, "document_list_updated", %{"documents" => documents})
 
     :ok
@@ -132,6 +134,7 @@ defmodule CognitusWeb.EditorChannel do
     else
       Logger.error("WebRTC answer received with no peer_id")
     end
+
     {:noreply, socket}
   end
 
@@ -150,20 +153,26 @@ defmodule CognitusWeb.EditorChannel do
     else
       Logger.error("ICE candidate received with no peer_id")
     end
+
     {:noreply, socket}
   end
-  ################################################################################################
-  # Insertion and deletion operations
-  ################################################################################################
+  #####################################################################################
+  ######################### INSERTION AND DELETION OPERATIONS #########################
+  #####################################################################################
   # Treat an "insertion" event - A character is added
   @impl true
   def handle_in("insert", %{"source" => source, "ch_value" => ch_value, "position" => position}, socket) do
     current_peer_id = socket.id
     if source==current_peer_id do
-       document = socket.assigns[:document]
-       Cognitus.Document.insert(document, position, current_peer_id, ch_value)
-       Cognitus.Document.update_text_from_document(document)
+      document = socket.assigns[:document]
+      Cognitus.Document.insert(document, position, current_peer_id, ch_value)
+      #Cognitus.Document.update_text_from_document(document)
+
+      updated_text = Cognitus.Document.update_text_from_document(document)
+      Logger.debug("Document state after operation: #{updated_text}")
     end
+
+    {:noreply, socket}
   end
 
   # Treat a "deletion" event - A character is deleted
@@ -173,8 +182,13 @@ defmodule CognitusWeb.EditorChannel do
     if source == current_peer_id do
       document = socket.assigns[:document]
       Cognitus.Document.delete(document, position)
-      Cognitus.Document.update_text_from_document(document)
+      #Cognitus.Document.update_text_from_document(document)
+
+      updated_text = Cognitus.Document.update_text_from_document(document)
+      Logger.debug("Document state after operation: #{updated_text}")
     end
+
+    {:noreply, socket}
   end
 
   #########################################################################
