@@ -1,7 +1,7 @@
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
 import "phoenix_html"
 // Establish Phoenix Socket and LiveView configuration.
-import { Socket, Presence } from "phoenix"
+import {Socket, Presence} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 
@@ -221,7 +221,7 @@ function setupDataChannel(dataChannel, peerId) {
     dataChannels[peerId] = dataChannel;
   };
 
-  dataChannel.onmessage = (event) => {
+  /* dataChannel.onmessage = (event) => {
     console.log("Received message from peer:", peerId, "Message:", event.data);
 
     // Parse data
@@ -240,7 +240,7 @@ function setupDataChannel(dataChannel, peerId) {
         currentText.slice(0, payload.position) +
         currentText.slice(payload.position + 1);
     }
-  };
+  }; */
 
   dataChannel.onclose = () => {
     console.log("Data channel closed with peer:", peerId);
