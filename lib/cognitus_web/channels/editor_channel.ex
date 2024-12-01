@@ -3,7 +3,9 @@ defmodule CognitusWeb.EditorChannel do
   require Logger
   alias CognitusWeb.UsernameService
 
+
   @peers :peers
+  @documents :documents
 
   #########################################################################
   ######################### JOIN AND LEAVE EVENTS #########################
@@ -36,12 +38,12 @@ defmodule CognitusWeb.EditorChannel do
     #   - Track the user's presence
     #   - Notify the channel to send the presence state to the client
     {username, username_color} = UsernameService.generate_username()
-    CognitusWeb.Presence.track(socket, socket.id, %{
-      username: username,
-      color: username_color,
-      joined_at: DateTime.utc_now()
-    })
-    send(self(), :after_join)
+    #CognitusWeb.Presence.track(socket, socket.id, %{    TODO: should be corrected (error)
+    #  username: username,
+    #  color: username_color,
+    #  joined_at: DateTime.utc_now()
+    #})
+    #send(self(), :after_join)
 
     Logger.info("Peer #{inspect(current_peer)} has joined \'editor:lobby\' channel. Peers after join: #{inspect(all_peers)}.")
 

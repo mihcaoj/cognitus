@@ -17,13 +17,10 @@ defmodule CognitusWeb.Router do
   scope "/", CognitusWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    live "/", DocumentLive
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", CognitusWeb do
-  #   pipe_through :api
-  # end
+
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:cognitus, :dev_routes) do
