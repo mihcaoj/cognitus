@@ -8,3 +8,5 @@ defmodule CognitusWeb.PageHTML do
 
   embed_templates "page_html/*"
 end
+
+# TODO: delete because we use LiveView instead of controllers

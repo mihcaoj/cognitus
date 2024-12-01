@@ -7,3 +7,5 @@ defmodule CognitusWeb.PageController do
     render(conn, :home, layout: false)
   end
 end
+
+# TODO: delete because we use LiveView instead of controllers

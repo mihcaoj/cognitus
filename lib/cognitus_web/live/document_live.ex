@@ -60,12 +60,7 @@ defmodule CognitusWeb.DocumentLive do
 
   # TODO: how to terminate ?
 
-  @impl true
-  def render(assigns) do
-    ~H"""
-    <button phx-click="inc_temperature">+</button>
-    """
-  end
+  # Automatically render template cognitus_web/live/document_live.html.heex
 
   @impl true
   def handle_event("inc_temperature", _params, socket) do
