@@ -1,5 +1,14 @@
-<h1>Document's title</h1>
-<textarea id="editor" rows="20" cols="60" placeholder="Start typing..."></textarea>
+<div id="document-title" phx-click="edit_title">
+  <%= if @editing_title do %>
+    <form phx-submit="save_title">
+      <input type="text" name="title" value={@title} phx-blur="cancel_edit_title" />
+      <button type="submit">Save</button>
+    </form>
+  <% else %>
+    <h1><%= @title %></h1>
+  <% end %>
+</div>
+<textarea id="editor" phx-hook="update_content" rows="20" cols="60" placeholder="Start typing..."></textarea>
 
 <!-- Add a section to display the connected users -->
 <div id="presence-container">

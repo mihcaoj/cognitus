@@ -10,9 +10,10 @@ defmodule CognitusWeb.Router do
     plug :put_secure_browser_headers
   end
 
-  pipeline :api do
-    plug :accepts, ["json"]
-  end
+  # TODO delete when channels are not used anymore
+#  pipeline :api do
+#    plug :accepts, ["json"]
+#  end
 
   scope "/", CognitusWeb do
     pipe_through :browser

@@ -48,23 +48,74 @@ defmodule CognitusWeb.DocumentLive do
     #})
     #send(self(), :after_join)
 
-    Logger.info("Peer #{inspect(current_peer)} has joined \'editor:lobby\' channel. Peers after join: #{inspect(all_peers)}.")
+    Logger.info("Peer #{inspect(current_peer)} has joined shared document. Peers after join: #{inspect(all_peers)}.")
 
     current_text = Cognitus.Document.update_text_from_document(current_document)
     Logger.debug("Sending current document text to new peer: #{inspect(current_text)}")
     # Assign the document to the socket and send the initial peer list and current username to the client
-    assign(socket, :document, current_document)
-    {:ok, %{socket_id: socket.id, peers: all_peers, username: username, text: current_text}, } # TODO change
+    socket =
+      socket
+      |> assign(:document, current_document)
+      |> assign(:editing_title, false)
+      |> assign(:title, "Document's title") # Default title or fetch from DB
+    IO.puts("Debug:") # TODO remove
+    IO.inspect(socket)
     {:ok, socket}
   end
 
   # TODO: how to terminate ?
 
+  #########################################################################
+  ######################### RENDER BROWSER'S VIEW #########################
+  #########################################################################
+
   # Automatically render template cognitus_web/live/document_live.html.heex
 
-  @impl true
-  def handle_event("inc_temperature", _params, socket) do
-    {:noreply, update(socket, :temperature, &(&1 + 1))}
+  #########################################################################
+  ############################# HANDLE EVENTS #############################
+  #########################################################################
+  # -------------------------- DOCUMENT'S TITLE --------------------------
+  def handle_event("edit_title", _params, socket) do
+    Logger.debug("Editing title")
+    IO.inspect(socket, label: "Handling edit_title")
+    {:noreply, assign(socket, editing_title: true)}
   end
+
+  def handle_event("save_title", %{"title" => new_title}, socket) do
+    IO.inspect(new_title, label: "New title received")
+    IO.inspect(socket, label: "Handling save_title")
+    {:noreply, assign(socket, title: new_title, editing_title: false)}
+  end
+
+  def handle_event("cancel_edit_title", _params, socket) do
+    IO.inspect(socket, label: "Handling cancel_edit_title")
+    {:noreply, assign(socket, editing_title: false)}
+  end
+
+  # ------------------------- DOCUMENT'S UPDATE -------------------------
+  @impl true
+  def handle_event("insert_character", %{"ch_value" => ch_value, "position" => position}, socket) do
+    current_peer_id = socket.id
+    document = socket.assigns[:document]
+    Cognitus.Document.insert(document, position, current_peer_id, ch_value)
+
+    updated_text = Cognitus.Document.update_text_from_document(document)
+    Logger.debug("Document state after operation LiveView: #{updated_text}")
+
+    {:noreply, update(socket, :text, updated_text)}
+  end
+
+  @impl true
+  def handle_event("delete_character", %{"position" => position}, socket) do
+    current_peer_id = socket.id
+    document = socket.assigns[:document]
+    Cognitus.Document.delete(document, position)
+
+    updated_text = Cognitus.Document.update_text_from_document(document)
+    Logger.debug("Document state after operation LiveView: #{updated_text}")
+
+    {:noreply, update(socket, :text, updated_text)}
+  end
+
   
 end
