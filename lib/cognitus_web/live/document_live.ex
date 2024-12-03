@@ -6,6 +6,7 @@ defmodule CognitusWeb.DocumentLive do
   require Logger
   alias Cognitus.ETS_helper
   alias CognitusWeb.UsernameService
+  alias CognitusWeb.Presence
 
   @peers :peers
   @documents :documents
@@ -20,11 +21,31 @@ defmodule CognitusWeb.DocumentLive do
   """
   @impl true
   def mount(_params, _session, socket) do
-    # Peer handling :
-    #  - Retrieve already existing peers
-    #  - Insert socket ID as peer ID into the ETS table
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(Cognitus.PubSub, "peers")
+
+      # Generate a username and color for the user
+      {username, username_color} = UsernameService.generate_username()
+
+      # Track presence
+      Presence.track(self(), "peers", socket.id,
+      %{
+        username: username,
+        color: username_color,
+        joined_at: DateTime.utc_now()
+      })
+
+      # Insert into ETS
+      Logger.debug("Adding peer #{inspect(socket.id)} to ETS")
+      :ets.insert(@peers, {socket.id, %{username: username, color: username_color}})
+    end
+
+    # Fetch all connected users
+    users = Presence.list("peers")
+
     current_peer = socket.id
-    :ets.insert(@peers, {socket.id})
+
+    # Retrieve all of the connected peers
     all_peers = ETS_helper.list_instances(@peers)
 
     # Document handling :
@@ -34,20 +55,9 @@ defmodule CognitusWeb.DocumentLive do
     {:ok, current_document} = Cognitus.Document.create_document()
     :ets.insert(:documents, {current_document})
     Cognitus.Document.link_with_peers_document(current_document, other_peers_documents)
+
+    # debugging
     Logger.debug("CRDT linked with other documents: #{inspect(other_peers_documents)}")
-
-    # Presence handling:
-    #   - Generate a username with a corresponding color
-    #   - Track the user's presence
-    #   - Notify the channel to send the presence state to the client
-    {username, username_color} = UsernameService.generate_username()
-    #CognitusWeb.Presence.track(socket, socket.id, %{    TODO: should be corrected (error)
-    #  username: username,
-    #  color: username_color,
-    #  joined_at: DateTime.utc_now()
-    #})
-    #send(self(), :after_join)
-
     Logger.info("Peer #{inspect(current_peer)} has joined shared document. Peers after join: #{inspect(all_peers)}.")
 
     current_text = Cognitus.Document.update_text_from_document(current_document)
@@ -55,12 +65,37 @@ defmodule CognitusWeb.DocumentLive do
     # Assign the document to the socket and send the initial peer list and current username to the client
     socket =
       socket
+      |> assign(:users, users)
       |> assign(:document, current_document)
       |> assign(:editing_title, false)
       |> assign(:title, "Document's title") # Default title or fetch from DB
-    IO.puts("Debug:") # TODO remove
     IO.inspect(socket)
     {:ok, socket}
+  end
+
+  @impl true
+  def handle_info(%{event: "presence_diff", payload: %{joins: joins, leaves: leaves}}, socket) do
+    Logger.debug("Presence diff joins: #{inspect(joins)}")
+    Logger.debug("Presence diff leaves: #{inspect(leaves)}")
+
+    # Handle leaves: remove users from ETS
+    Enum.each(leaves, fn {key, _value} ->
+      Logger.debug("Removing peer #{key} from ETS")
+      :ets.delete(:peers, key)
+    end)
+
+    # Handle joins: add users to ETS and ensure no duplicates
+    Enum.each(joins, fn {key, %{metas: [latest_meta | _]}} ->
+      Logger.debug("Adding #{key} in ETS with #{inspect(latest_meta)}")
+
+      # Check for duplicate username in ETS
+      :ets.insert(:peers, {key, %{username: latest_meta.username, color: latest_meta.color}})
+    end)
+
+    # Fetch the updated list of users from Presence
+    users = Presence.list("peers")
+
+    {:noreply, assign(socket, :users, users)}
   end
 
   # TODO: how to terminate ?
@@ -107,7 +142,7 @@ defmodule CognitusWeb.DocumentLive do
 
   @impl true
   def handle_event("delete_character", %{"position" => position}, socket) do
-    current_peer_id = socket.id
+    #current_peer_id = socket.id
     document = socket.assigns[:document]
     Cognitus.Document.delete(document, position)
 
@@ -117,5 +152,4 @@ defmodule CognitusWeb.DocumentLive do
     {:noreply, update(socket, :text, updated_text)}
   end
 
-  
 end

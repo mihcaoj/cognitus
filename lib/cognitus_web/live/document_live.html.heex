@@ -10,10 +10,13 @@
 </div>
 <textarea id="editor" phx-hook="update_content" rows="20" cols="60" placeholder="Start typing..."></textarea>
 
-<!-- Add a section to display the connected users -->
 <div id="presence-container">
-<h2>Connected Users</h2>
-<ul id="user-list">
-    <!-- TODO correct info when presence is corrected "The JavaScript dynamically populates this list" -->
-</ul>
+  <h2>Connected Users</h2>
+  <ul id="user-list">
+    <%= for {_id, %{metas: metas}} <- @users do %>
+      <%= for meta <- metas do %>
+        <li style={"color: #{meta.color};"}><%= meta.username %></li>
+      <% end %>
+    <% end %>
+  </ul>
 </div>

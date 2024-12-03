@@ -8,6 +8,6 @@ defmodule Cognitus.ETS_helper do
   Retrieve all instances of an ETS table as a list, where the ETS table stores each item in a tuple {instance}
   """
   def list_instances(ets_table) do
-    :ets.tab2list(ets_table) |> Enum.map(fn {item} -> item end)
+    for {id, _meta} <- :ets.tab2list(ets_table), is_binary(id), do: id
   end
 end

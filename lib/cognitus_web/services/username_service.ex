@@ -22,13 +22,10 @@ defmodule CognitusWeb.UsernameService do
   Generate a username from a list of famous computer scientist names.
   """
   def generate_username() do
-    # 1. Retrieve the list of usernames currently in use using Presence
-    #   - Enum.flat_map iterates through this map and extracts all usernames from the metas list for each user
-    #   - The comprehension loop extracts the username key from each metadata map
-    #   - do: username collects all extracted usernames in a flat list
+    # Retrieve assigned usernames from the `:peers` ETS table
     assigned_usernames =
-      CognitusWeb.Presence.list("editor:lobby")
-      |> Enum.flat_map(fn {_id, %{metas: metas}} -> for %{username: username} <- metas, do: username end)
+      :ets.tab2list(:peers)
+      |> Enum.map(fn {_id, %{username: username}} -> username end)
 
     # 2. Calculate available usernames
     available_usernames = all_usernames() -- assigned_usernames
@@ -53,14 +50,6 @@ defmodule CognitusWeb.UsernameService do
   @spec generate_username_color() :: username_color()
   # Helper function to generate a unique color for the user's username
   defp generate_username_color() do
-    adjust = fn -> Enum.random(1..255) end
-
-    # generate RGB values in the adjusted range
-    r = adjust.()
-    g = adjust.()
-    b = adjust.()
-
-    # return the generated color in RGB format
-    "rgb(#{r}, #{g}, #{b})"
+    "rgb(#{Enum.random(20..200)}, #{Enum.random(20..200)}, #{Enum.random(20..200)})"
   end
 end

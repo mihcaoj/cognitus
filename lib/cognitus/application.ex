@@ -22,7 +22,6 @@ defmodule Cognitus.Application do
       # {Cognitus.Worker, arg},
       # Start to serve requests, typically the last entry
       CognitusWeb.Endpoint,
-      # Start the Presence tracker
       CognitusWeb.Presence,
     ]
 
