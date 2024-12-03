@@ -1,5 +1,6 @@
-defmodule CognitusWeb.UserSocket do
-  use Phoenix.Socket
+# TODO remove when sure we don't use channels anymore
+#defmodule CognitusWeb.UserSocket do
+ # use Phoenix.Socket
 
   # A Socket handler
   #
@@ -8,7 +9,7 @@ defmodule CognitusWeb.UserSocket do
 
   ## Channels
 
-  channel "editor:*", CognitusWeb.EditorChannel
+  #channel "editor:*", CognitusWeb.EditorChannel
 
   # Socket params are passed from the client and can
   # be used to verify and authenticate a user. After
@@ -24,11 +25,11 @@ defmodule CognitusWeb.UserSocket do
   #
   # See `Phoenix.Token` documentation for examples in
   # performing token verification on connect.
-  @impl true
-  def connect(_params, socket, _connect_info) do
-    unique_id = UUID.uuid4()
-    {:ok, assign(socket, :id, unique_id)} # assign unique ID to the socket
-  end
+#  @impl true
+#  def connect(_params, socket, _connect_info) do
+#    unique_id = UUID.uuid4()
+#    {:ok, assign(socket, :id, unique_id)} # assign unique ID to the socket
+#  end
 
   # Socket IDs are topics that allow you to identify all sockets for a given user:
   #
@@ -40,6 +41,6 @@ defmodule CognitusWeb.UserSocket do
   #     Elixir.CognitusWeb.Endpoint.broadcast("user_socket:#{user.id}", "disconnect", %{})
   #
   # Returning `nil` makes this socket anonymous.
-  @impl true
-  def id(socket), do: socket.assigns.id
-end
+#  @impl true
+#  def id(socket), do: socket.assigns.id
+#end
