@@ -22,7 +22,11 @@ defmodule CognitusWeb.DocumentLive do
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
+      # Subscribe to PubSub for peer updates
       Phoenix.PubSub.subscribe(Cognitus.PubSub, "peers")
+
+      # Subscribe to PubSub for document title updates
+      Phoenix.PubSub.subscribe(Cognitus.PubSub, "document_title")
 
       # Generate a username and color for the user
       {username, username_color} = UsernameService.generate_username()
@@ -35,7 +39,7 @@ defmodule CognitusWeb.DocumentLive do
         joined_at: DateTime.utc_now()
       })
 
-      # Insert into ETS
+      # Insert user into ETS
       Logger.debug("Adding peer #{inspect(socket.id)} to ETS")
       :ets.insert(@peers, {socket.id, %{username: username, color: username_color}})
     end
@@ -75,18 +79,18 @@ defmodule CognitusWeb.DocumentLive do
 
   @impl true
   def handle_info(%{event: "presence_diff", payload: %{joins: joins, leaves: leaves}}, socket) do
-    Logger.debug("Presence diff joins: #{inspect(joins)}")
-    Logger.debug("Presence diff leaves: #{inspect(leaves)}")
+    #Logger.debug("Presence diff joins: #{inspect(joins)}")
+    #Logger.debug("Presence diff leaves: #{inspect(leaves)}")
 
     # Handle leaves: remove users from ETS
     Enum.each(leaves, fn {key, _value} ->
-      Logger.debug("Removing peer #{key} from ETS")
+      #Logger.debug("Removing peer #{key} from ETS")
       :ets.delete(:peers, key)
     end)
 
     # Handle joins: add users to ETS and ensure no duplicates
     Enum.each(joins, fn {key, %{metas: [latest_meta | _]}} ->
-      Logger.debug("Adding #{key} in ETS with #{inspect(latest_meta)}")
+      #Logger.debug("Adding #{key} in ETS with #{inspect(latest_meta)}")
 
       # Check for duplicate username in ETS
       :ets.insert(:peers, {key, %{username: latest_meta.username, color: latest_meta.color}})
@@ -119,12 +123,27 @@ defmodule CognitusWeb.DocumentLive do
   def handle_event("save_title", %{"title" => new_title}, socket) do
     IO.inspect(new_title, label: "New title received")
     IO.inspect(socket, label: "Handling save_title")
+
+    # Broadcast the new title to all of the connected clients
+    Phoenix.PubSub.broadcast(
+      Cognitus.PubSub,
+      "document_title",
+      %{event: "title_updated", title: new_title}
+    )
+
+    # Update the title locally
     {:noreply, assign(socket, title: new_title, editing_title: false)}
   end
 
   def handle_event("cancel_edit_title", _params, socket) do
     IO.inspect(socket, label: "Handling cancel_edit_title")
     {:noreply, assign(socket, editing_title: false)}
+  end
+
+  @impl true
+  def handle_info(%{event: "title_updated", title: new_title}, socket) do
+    # Update the title
+    {:noreply, assign(socket, title: new_title)}
   end
 
   # ------------------------- DOCUMENT'S UPDATE -------------------------
