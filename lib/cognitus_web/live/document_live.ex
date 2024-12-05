@@ -22,6 +22,9 @@ defmodule CognitusWeb.DocumentLive do
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
+      # Subscribe to PubSub for document updates
+      Phoenix.PubSub.subscribe(Cognitus.PubSub, "document_updates")
+
       # Subscribe to PubSub for peer updates
       Phoenix.PubSub.subscribe(Cognitus.PubSub, "peers")
 
@@ -73,6 +76,7 @@ defmodule CognitusWeb.DocumentLive do
       |> assign(:document, current_document)
       |> assign(:editing_title, false)
       |> assign(:title, "Document's title") # Default title or fetch from DB
+      |> assign(:text, current_text)
     IO.inspect(socket)
     {:ok, socket}
   end
@@ -156,7 +160,13 @@ defmodule CognitusWeb.DocumentLive do
     updated_text = Cognitus.Document.update_text_from_document(document)
     Logger.debug("Document state after operation LiveView: #{updated_text}")
 
-    {:noreply, update(socket, :text, updated_text)}
+    Phoenix.PubSub.broadcast(
+      Cognitus.PubSub,
+      "document_updates",
+      %{event: "text_updated", text: updated_text}
+    )
+
+    {:noreply, assign(socket, :text, updated_text)}
   end
 
   @impl true
@@ -168,7 +178,20 @@ defmodule CognitusWeb.DocumentLive do
     updated_text = Cognitus.Document.update_text_from_document(document)
     Logger.debug("Document state after operation LiveView: #{updated_text}")
 
-    {:noreply, update(socket, :text, updated_text)}
+    Phoenix.PubSub.broadcast(
+      Cognitus.PubSub,
+      "document_updates",
+      %{event: "text_updated", text: updated_text}
+    )
+
+    {:noreply, assign(socket, :text, updated_text)}
+  end
+
+  @impl true
+  def handle_info(%{event: "text_updated", text: updated_text}, socket) do
+    Logger.debug("Received updated text: #{updated_text}")
+
+    {:noreply, assign(socket, :text, updated_text)}
   end
 
 end

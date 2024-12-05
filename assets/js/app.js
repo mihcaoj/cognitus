@@ -5,16 +5,11 @@ let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("
 let Hooks = {};
 let editor = document.querySelector("#editor");
 
-// Define live socket and connect to the live endpoint
-let liveSocket = new LiveSocket("/live", Socket, {
-    params: { _csrf_token: csrfToken, hooks: Hooks }
-})
-
-liveSocket.connect()
-
 Hooks.EditorHook = {
     mounted() {
-        this.el.addEventListener("keyup", (event) => {
+        console.log("EditorHook mounted");
+        let editor = this.el;
+        editor.addEventListener("input", (event) => {
             let ch_value = event.data; // inserted char
             let cursor_position = editor.selectionStart; // cursor position before input
             if (ch_value != null){
@@ -26,3 +21,14 @@ Hooks.EditorHook = {
         });
     }
 };
+
+// Define live socket and connect to the live endpoint
+let liveSocket = new LiveSocket("/live", Socket, {
+    params: { _csrf_token: csrfToken}, hooks: Hooks 
+})
+
+console.log("LiveSocket initialized", liveSocket);
+
+liveSocket.connect()
+
+console.log("LiveSocket connected");
