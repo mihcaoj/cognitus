@@ -10,20 +10,16 @@ defmodule CognitusWeb.Router do
     plug :put_secure_browser_headers
   end
 
-  pipeline :api do
-    plug :accepts, ["json"]
-  end
+  # TODO delete when channels are not used anymore
+#  pipeline :api do
+#    plug :accepts, ["json"]
+#  end
 
   scope "/", CognitusWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    live "/", DocumentLive
   end
-
-  # Other scopes may use custom stacks.
-  # scope "/api", CognitusWeb do
-  #   pipe_through :api
-  # end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:cognitus, :dev_routes) do

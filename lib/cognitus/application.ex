@@ -7,8 +7,9 @@ defmodule Cognitus.Application do
 
   @impl true
   def start(_type, _args) do
-    # Create the ETS table for peers
+    # Create the ETS tables for peers and their document replica
     :ets.new(:peers, [:named_table, :public, :set, read_concurrency: true])
+    :ets.new(:documents, [:named_table, :public, :set, read_concurrency: true])
 
     children = [
       CognitusWeb.Telemetry,
@@ -21,7 +22,6 @@ defmodule Cognitus.Application do
       # {Cognitus.Worker, arg},
       # Start to serve requests, typically the last entry
       CognitusWeb.Endpoint,
-      # Start the Presence tracker
       CognitusWeb.Presence,
     ]
 

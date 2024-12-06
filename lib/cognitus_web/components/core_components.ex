@@ -17,7 +17,7 @@ defmodule CognitusWeb.CoreComponents do
   use Phoenix.Component
 
   alias Phoenix.LiveView.JS
-  import CognitusWeb.Gettext
+  use Gettext, backend: CognitusWeb.Gettext
 
   @doc """
   Renders a modal.
