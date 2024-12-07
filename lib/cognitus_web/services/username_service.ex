@@ -37,7 +37,7 @@ defmodule CognitusWeb.UsernameService do
       [] -> Logger.error("No usernames available!")
             {:error, "No usernames available"}
 
-      [first_username | _rest] -> {first_username, generate_username_color()}
+      usernames_list -> {Enum.random(usernames_list), generate_username_color()}
     end
   end
 
