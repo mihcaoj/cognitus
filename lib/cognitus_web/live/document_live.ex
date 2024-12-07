@@ -21,18 +21,15 @@ defmodule CognitusWeb.DocumentLive do
   """
   @impl true
   def mount(_params, _session, socket) do
+    # Generate a username and color for the new user
+    {username, username_color} = UsernameService.generate_username()
+
     if connected?(socket) do
-      # Subscribe to PubSub for document updates
-      Phoenix.PubSub.subscribe(Cognitus.PubSub, "document_updates")
+      # Subscribe to PubSub for document, title and peers updates
+      topics = ["title_updates","document_updates", "peers"]
+      Enum.map(topics, fn topic -> Phoenix.PubSub.subscribe(Cognitus.PubSub, topic) end)
 
-      # Subscribe to PubSub for peer updates
-      Phoenix.PubSub.subscribe(Cognitus.PubSub, "peers")
-
-      # Subscribe to PubSub for document title updates
-      Phoenix.PubSub.subscribe(Cognitus.PubSub, "document_title")
-
-      # Generate a username and color for the user
-      {username, username_color} = UsernameService.generate_username()
+      Logger.debug("Socket connected and user subscribed to topics #{inspect(topics)}")
 
       # Track presence
       Presence.track(self(), "peers", socket.id,
@@ -69,15 +66,17 @@ defmodule CognitusWeb.DocumentLive do
 
     current_text = Cognitus.Document.update_text_from_document(current_document)
     Logger.debug("Sending current document text to new peer: #{inspect(current_text)}")
+
     # Assign the document to the socket and send the initial peer list and current username to the client
     socket =
       socket
       |> assign(:users, users)
+      |> assign(:username, username)
       |> assign(:document, current_document)
       |> assign(:editing_title, false)
-      |> assign(:title, "Document's title") # Default title or fetch from DB
+      |> assign(:title, Cognitus.DocumentTitleAgent.get_title())
       |> assign(:text, current_text)
-    IO.inspect(socket)
+    # IO.inspect(socket) TODO remove
     {:ok, socket}
   end
 
@@ -118,32 +117,43 @@ defmodule CognitusWeb.DocumentLive do
   ############################# HANDLE EVENTS #############################
   #########################################################################
   # -------------------------- DOCUMENT'S TITLE --------------------------
+  @doc """
+  Handling event "Enter document's title edition mode"
+  """
   def handle_event("edit_title", _params, socket) do
-    Logger.debug("Editing title")
-    IO.inspect(socket, label: "Handling edit_title")
+    Logger.info("User #{socket.assigns[:username]} has entered in title edition mode.")
     {:noreply, assign(socket, editing_title: true)}
   end
 
+  @doc """
+  Handling event "Save a new document's title"
+  """
   def handle_event("save_title", %{"title" => new_title}, socket) do
-    IO.inspect(new_title, label: "New title received")
-    IO.inspect(socket, label: "Handling save_title")
-
+    Cognitus.DocumentTitleAgent.set_title(new_title)
     # Broadcast the new title to all of the connected clients
     Phoenix.PubSub.broadcast(
       Cognitus.PubSub,
-      "document_title",
+      "title_updates",
       %{event: "title_updated", title: new_title}
     )
+
+    Logger.info("User #{socket.assigns[:username]} has saved new title: #{new_title}}.")
 
     # Update the title locally
     {:noreply, assign(socket, title: new_title, editing_title: false)}
   end
 
+  @doc """
+  Handling event "Quit document's title edition mode without saving modification"
+  """
   def handle_event("cancel_edit_title", _params, socket) do
-    IO.inspect(socket, label: "Handling cancel_edit_title")
+    Logger.info("User #{socket.assigns[:username]} cancelled title edition.")
     {:noreply, assign(socket, editing_title: false)}
   end
 
+  @doc """
+  Synchronise document's title when another user updated it.
+  """
   @impl true
   def handle_info(%{event: "title_updated", title: new_title}, socket) do
     # Update the title

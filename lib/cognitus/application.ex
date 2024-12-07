@@ -23,6 +23,7 @@ defmodule Cognitus.Application do
       # Start to serve requests, typically the last entry
       CognitusWeb.Endpoint,
       CognitusWeb.Presence,
+      Cognitus.DocumentTitleAgent
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

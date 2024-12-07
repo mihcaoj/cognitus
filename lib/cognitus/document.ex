@@ -34,7 +34,7 @@ defmodule Cognitus.Document do
   def insert(document, position, peer_id, ch_value) do
     Logger.debug("CRDT state before insert: #{inspect(DeltaCrdt.to_map(document))}")
 
-    prev_ch_id = if position >= 1, do: get_ch_id_at_position(document, position - 1), else: nil   # TODO fix bug: always nil
+    prev_ch_id = if position >= 1, do: get_ch_id_at_position(document, position - 1), else: nil
     next_ch_id = get_ch_id_at_position(document, position)
     ch_id = generate_ch_id(peer_id, prev_ch_id, next_ch_id)
     DeltaCrdt.put(document, ch_id, ch_value)
