@@ -34,11 +34,10 @@ defmodule Cognitus.Document do
   def insert(document, position, peer_id, ch_value) do
     Logger.debug("CRDT state before insert: #{inspect(DeltaCrdt.to_map(document))}")
 
-    prev_ch_id = if position > 1, do: get_ch_id_at_position(document, position - 1), else: nil
+    prev_ch_id = if position >= 1, do: get_ch_id_at_position(document, position - 1), else: nil   # TODO fix bug: always nil
     next_ch_id = get_ch_id_at_position(document, position)
     ch_id = generate_ch_id(peer_id, prev_ch_id, next_ch_id)
     DeltaCrdt.put(document, ch_id, ch_value)
-    IO.inspect(document)
     Logger.debug("CRDT state after insert: #{inspect(DeltaCrdt.to_map(document))}")
   end
 
@@ -54,7 +53,6 @@ defmodule Cognitus.Document do
   @spec update_text_from_document(document()) :: String.t()
   # Convert the CRDT document into the corresponding text
   def update_text_from_document(document) do
-    #sorted_ch_ids = DeltaCrdt.read(document) |> Map.keys() |> Enum.sort()
     sorted_ch_ids =
       document
       |> DeltaCrdt.to_map()
@@ -77,8 +75,8 @@ defmodule Cognitus.Document do
   # - predecessor character's ch_id
   # - successor character's ch_id
   defp generate_ch_id(peer_id, nil, nil), do: {100, peer_id}
-  defp generate_ch_id(peer_id, nil, {next_log_pos, _}), do: {next_log_pos + 10, peer_id}
-  defp generate_ch_id(peer_id, {prev_log_pos, _}, nil), do: {prev_log_pos - 10, peer_id}
+  defp generate_ch_id(peer_id, nil, {next_log_pos, _}), do: {next_log_pos - 10, peer_id}
+  defp generate_ch_id(peer_id, {prev_log_pos, _}, nil), do: {prev_log_pos + 10, peer_id}
   defp generate_ch_id(peer_id, {prev_log_pos, _}, {next_log_pos, _}) do
     {(prev_log_pos + next_log_pos)/2, peer_id}
   end
@@ -86,7 +84,6 @@ defmodule Cognitus.Document do
   @spec get_ch_id_at_position(document(), integer()) :: ch_id()
   # Retrieve identifier of a character given its position.
   defp get_ch_id_at_position(document, position) do
-    #sorted_ch_ids = DeltaCrdt.read(document) |> Map.keys() |> Enum.sort()
     sorted_ch_ids =
       document
       |> DeltaCrdt.to_map()
