@@ -18,11 +18,11 @@ defmodule Cognitus.Document do
     DeltaCrdt.start_link(DeltaCrdt.AWLWWMap, sync_interval: 100)
   end
 
-  @spec link_with_peers_document(document(), [document()]) :: :ok
+  @spec link_documents(document(), [document()]) :: :ok
   @doc """
   Link replicas of two peers
   """
-  def link_with_peers_document(new_document, others_document) do
+  def link_documents(new_document, others_document) do
     DeltaCrdt.set_neighbours(new_document, others_document)
     Enum.map(others_document, fn other_document ->
       DeltaCrdt.set_neighbours(other_document,[new_document])

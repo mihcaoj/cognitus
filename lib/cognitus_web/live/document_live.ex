@@ -44,7 +44,7 @@ defmodule CognitusWeb.DocumentLive do
     users = Presence.list("peers")
 
     # Link CRDT documents
-    Cognitus.Document.link_with_peers_document(document, others_document)
+    Cognitus.Document.link_documents(document, others_document)
 
     IO.puts("OTHER PEERS DOCUMENT") # TODO remove
     IO.inspect(others_document)
