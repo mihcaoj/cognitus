@@ -1,15 +1,12 @@
 defmodule CognitusWeb.DocumentLive do
   @moduledoc """
-  Liveview process
+  Liveview process for document
   """
   use CognitusWeb, :live_view
   require Logger
-  alias Cognitus.ETS_helper
+  alias Cognitus.PresenceHelper
   alias CognitusWeb.UsernameService
   alias CognitusWeb.Presence
-
-  @peers :peers
-  @documents :documents
 
   #########################################################################
   ######################### JOIN AND LEAVE EVENTS #########################
@@ -21,91 +18,64 @@ defmodule CognitusWeb.DocumentLive do
   """
   @impl true
   def mount(_params, _session, socket) do
-    # Generate a username and color for the new user
+    others_document = PresenceHelper.list_instances(:document)
+
+    # Generate a username, a color and a document for the new user
     {username, username_color} = UsernameService.generate_username()
+    {:ok, document} = Cognitus.Document.create_document()
 
     if connected?(socket) do
-      # Subscribe to PubSub for document, title and peers updates
-      topics = ["title_updates","document_updates", "peers"]
+      # Subscribe to PubSub for title and peers updates
+      topics = ["title_updates","peers"]
       Enum.map(topics, fn topic -> Phoenix.PubSub.subscribe(Cognitus.PubSub, topic) end)
-
-      Logger.debug("Socket connected and user subscribed to topics #{inspect(topics)}")
+      Logger.debug("#{username}'s socket is connected and user is subscribed to topics #{inspect(topics)}")
 
       # Track presence
       Presence.track(self(), "peers", socket.id,
       %{
         username: username,
         color: username_color,
-        joined_at: DateTime.utc_now()
+        document: document,
+        joined_at: DateTime.utc_now()   # TODO Final cleanup: remove unless we use it
       })
-
-      # Insert user into ETS
-      Logger.debug("Adding peer #{inspect(socket.id)} to ETS")
-      :ets.insert(@peers, {socket.id, %{username: username, color: username_color}})
     end
 
     # Fetch all connected users
     users = Presence.list("peers")
 
-    current_peer = socket.id
+    # Link CRDT documents
+    Cognitus.Document.link_with_peers_document(document, others_document)
 
-    # Retrieve all of the connected peers
-    all_peers = ETS_helper.list_instances(@peers)
-
-    # Document handling :
-    #   - Create a new document for current peer
-    #   - Link it to other peers document to enable synchronization
-    other_peers_documents = ETS_helper.list_instances(@documents)
-    {:ok, current_document} = Cognitus.Document.create_document()
-    :ets.insert(:documents, {current_document})
-    Cognitus.Document.link_with_peers_document(current_document, other_peers_documents)
+    IO.puts("OTHER PEERS DOCUMENT") # TODO remove
+    IO.inspect(others_document)
+    IO.puts("CURRENT DOCUMENT") # TODO remove
+    IO.inspect(document)
 
     # debugging
-    Logger.debug("CRDT linked with other documents: #{inspect(other_peers_documents)}")
-    Logger.info("Peer #{inspect(current_peer)} has joined shared document. Peers after join: #{inspect(all_peers)}.")
+    Logger.info("#{username} has joined shared document. Users after join: #{inspect(PresenceHelper.list_instances(:username))}.")
 
-    current_text = Cognitus.Document.update_text_from_document(current_document)
-    Logger.debug("Sending current document text to new peer: #{inspect(current_text)}")
+    current_text = Cognitus.Document.update_text_from_document(document)
+    Logger.debug("Sending current document text to new user: #{inspect(current_text)}")
 
     # Assign the document to the socket and send the initial peer list and current username to the client
     socket =
       socket
       |> assign(:users, users)
       |> assign(:username, username)
-      |> assign(:document, current_document)
+      |> assign(:document, document)
       |> assign(:editing_title, false)
       |> assign(:title, Cognitus.DocumentTitleAgent.get_title())
       |> assign(:text, current_text)
-    # IO.inspect(socket) TODO remove
     {:ok, socket}
   end
 
   @impl true
-  def handle_info(%{event: "presence_diff", payload: %{joins: joins, leaves: leaves}}, socket) do
-    #Logger.debug("Presence diff joins: #{inspect(joins)}")
-    #Logger.debug("Presence diff leaves: #{inspect(leaves)}")
-
-    # Handle leaves: remove users from ETS
-    Enum.each(leaves, fn {key, _value} ->
-      #Logger.debug("Removing peer #{key} from ETS")
-      :ets.delete(:peers, key)
-    end)
-
-    # Handle joins: add users to ETS and ensure no duplicates
-    Enum.each(joins, fn {key, %{metas: [latest_meta | _]}} ->
-      #Logger.debug("Adding #{key} in ETS with #{inspect(latest_meta)}")
-
-      # Check for duplicate username in ETS
-      :ets.insert(:peers, {key, %{username: latest_meta.username, color: latest_meta.color}})
-    end)
-
+  def handle_info(%{event: "presence_diff", payload: %{joins: _joins, leaves: _leaves}}, socket) do
     # Fetch the updated list of users from Presence
     users = Presence.list("peers")
 
     {:noreply, assign(socket, :users, users)}
   end
-
-  # TODO: how to terminate ?
 
   #########################################################################
   ######################### RENDER BROWSER'S VIEW #########################
@@ -117,17 +87,13 @@ defmodule CognitusWeb.DocumentLive do
   ############################# HANDLE EVENTS #############################
   #########################################################################
   # -------------------------- DOCUMENT'S TITLE --------------------------
-  @doc """
-  Handling event "Enter document's title edition mode"
-  """
+  # Handling event "Enter document's title edition mode"
   def handle_event("edit_title", _params, socket) do
-    Logger.info("User #{socket.assigns[:username]} has entered in title edition mode.")
+    Logger.info("#{socket.assigns[:username]} has entered in title edition mode.")
     {:noreply, assign(socket, editing_title: true)}
   end
 
-  @doc """
-  Handling event "Save a new document's title"
-  """
+  # Handling event "Save a new document's title"
   def handle_event("save_title", %{"title" => new_title}, socket) do
     Cognitus.DocumentTitleAgent.set_title(new_title)
     # Broadcast the new title to all of the connected clients
@@ -137,23 +103,19 @@ defmodule CognitusWeb.DocumentLive do
       %{event: "title_updated", title: new_title}
     )
 
-    Logger.info("User #{socket.assigns[:username]} has saved new title: #{new_title}}.")
+    Logger.info("#{socket.assigns[:username]} has saved new title: #{new_title}}.")
 
     # Update the title locally
     {:noreply, assign(socket, title: new_title, editing_title: false)}
   end
 
-  @doc """
-  Handling event "Quit document's title edition mode without saving modification"
-  """
+  # Handling event "Quit document's title edition mode without saving modification"
   def handle_event("cancel_edit_title", _params, socket) do
-    Logger.info("User #{socket.assigns[:username]} cancelled title edition.")
+    Logger.info("#{socket.assigns[:username]} cancelled title edition.")
     {:noreply, assign(socket, editing_title: false)}
   end
 
-  @doc """
-  Synchronise document's title when another user updated it.
-  """
+  # Synchronise document's title when another user updated it.
   @impl true
   def handle_info(%{event: "title_updated", title: new_title}, socket) do
     # Update the title
@@ -161,6 +123,7 @@ defmodule CognitusWeb.DocumentLive do
   end
 
   # ------------------------- DOCUMENT'S UPDATE -------------------------
+  # Handling event "insertion of a character"
   @impl true
   def handle_event("insert_character", %{"ch_value" => ch_value, "position" => position}, socket) do
     current_peer_id = socket.id
@@ -168,40 +131,39 @@ defmodule CognitusWeb.DocumentLive do
     Cognitus.Document.insert(document, position, current_peer_id, ch_value)
 
     updated_text = Cognitus.Document.update_text_from_document(document)
-    Logger.debug("Document state after operation LiveView: #{updated_text}")
+#    Phoenix.PubSub.broadcast(                      # TODO verify if necessary, else remove (should go through Delta CRDT)
+#      Cognitus.PubSub,
+#      "document_updates",
+#      %{event: "text_updated", text: updated_text}
+#    )
 
-    Phoenix.PubSub.broadcast(
-      Cognitus.PubSub,
-      "document_updates",
-      %{event: "text_updated", text: updated_text}
-    )
-
+    Logger.info("#{socket.assigns[:username]} has inserted character #{ch_value} at position #{position}.")
+    Logger.debug("Document state of #{socket.assigns[:username]} after insertion operation: #{updated_text}")
     {:noreply, assign(socket, :text, updated_text)}
   end
 
   @impl true
   def handle_event("delete_character", %{"position" => position}, socket) do
-    #current_peer_id = socket.id
     document = socket.assigns[:document]
-    Cognitus.Document.delete(document, position)
-
+    ch_value = Cognitus.Document.delete(document, position)
     updated_text = Cognitus.Document.update_text_from_document(document)
-    Logger.debug("Document state after operation LiveView: #{updated_text}")
 
-    Phoenix.PubSub.broadcast(
-      Cognitus.PubSub,
-      "document_updates",
-      %{event: "text_updated", text: updated_text}
-    )
-
-    {:noreply, assign(socket, :text, updated_text)}
-  end
-
-  @impl true
-  def handle_info(%{event: "text_updated", text: updated_text}, socket) do
-    Logger.debug("Received updated text: #{updated_text}")
+#    Phoenix.PubSub.broadcast(                                               # TODO verify if necessary, else remove (should go through Delta CRDT)
+#      Cognitus.PubSub,
+#      "document_updates",
+#      %{event: "text_updated", text: updated_text}
+#    )
+    Logger.info("#{socket.assigns[:username]} has deleted character #{ch_value} at position #{position}.")
+    Logger.debug("Document state of #{socket.assigns[:username]} after deletion operation: #{updated_text}")
 
     {:noreply, assign(socket, :text, updated_text)}
   end
+
+#  @impl true
+#  def handle_info(%{event: "text_updated", text: updated_text}, socket) do  # TODO verify if necessary, else remove (should go through Delta CRDT)
+#    Logger.debug("Received updated text: #{updated_text}")
+#
+#    {:noreply, assign(socket, :text, updated_text)}
+#  end
 
 end

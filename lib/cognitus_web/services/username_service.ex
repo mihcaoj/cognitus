@@ -3,6 +3,7 @@ defmodule CognitusWeb.UsernameService do
   @moduledoc """
   Service handling username generation and associated color.
   """
+  alias Cognitus.PresenceHelper
   @type username :: String.t()
   @type username_color :: String.t()
 
@@ -22,15 +23,11 @@ defmodule CognitusWeb.UsernameService do
   Generate a username from a list of famous computer scientist names.
   """
   def generate_username() do
-    # Retrieve assigned usernames from the `:peers` ETS table
-    assigned_usernames =
-      :ets.tab2list(:peers)
-      |> Enum.map(fn {_id, %{username: username}} -> username end)
-
-    # 2. Calculate available usernames
+    # Retrieve assigned usernames from Presence and calculate available ones
+    assigned_usernames = PresenceHelper.list_instances(:username)
     available_usernames = all_usernames() -- assigned_usernames
 
-    # 3. Assign a username and a color
+    # Assign a username and a color
     #   - If list is empty return an error message
     #   - Otherwise take the head of the list and assign it
     case available_usernames do

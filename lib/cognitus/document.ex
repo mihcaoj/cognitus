@@ -15,16 +15,22 @@ defmodule Cognitus.Document do
   Create a OR-Set CRDT document data structure.
   """
   def create_document() do
-    DeltaCrdt.start_link(DeltaCrdt.AWLWWMap)
+    DeltaCrdt.start_link(DeltaCrdt.AWLWWMap, sync_interval: 100)
   end
 
   @spec link_with_peers_document(document(), [document()]) :: :ok
   @doc """
   Link replicas of two peers
   """
-  def link_with_peers_document(current_peer_document, other_peer_documents_list) do
-    DeltaCrdt.set_neighbours(current_peer_document, other_peer_documents_list)
-    Logger.debug("Linked CRDT with peers: #{inspect(other_peer_documents_list)}")
+  def link_with_peers_document(new_document, others_document) do
+    DeltaCrdt.set_neighbours(new_document, others_document)
+    Enum.map(others_document, fn other_document ->
+      DeltaCrdt.set_neighbours(other_document,[new_document])
+      inspect(DeltaCrdt.to_map(other_document))  # TODO Remove
+    end)
+    Logger.debug("Linked new CRDT #{inspect(new_document)} with other's CRDT: #{inspect(others_document)}")
+    Process.sleep(10) # need to wait for propagation for the doctest TODO remove
+    DeltaCrdt.to_map(new_document) # TODO Remove
   end
 
   @spec insert(document(), integer(), integer(), char()) :: document()
@@ -47,7 +53,9 @@ defmodule Cognitus.Document do
   """
   def delete(document, position) do
     ch_id = get_ch_id_at_position(document, position)
+    ch_value = DeltaCrdt.get(document, ch_id)
     DeltaCrdt.delete(document, ch_id)
+    ch_value
   end
 
   @spec update_text_from_document(document()) :: String.t()
