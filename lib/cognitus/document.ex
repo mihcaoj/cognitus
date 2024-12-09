@@ -23,13 +23,21 @@ defmodule Cognitus.Document do
   Link replicas of two peers
   """
   def link_documents(new_document, others_document) do
-    DeltaCrdt.set_neighbours(new_document, others_document)
-    Enum.map(others_document, fn other_document ->
-      DeltaCrdt.set_neighbours(other_document,[new_document])
-      inspect(DeltaCrdt.to_map(other_document))  # TODO Remove
+    # Added to avoid linking dead documents which brought on problems
+    alive_documents = Enum.filter(others_document, &Process.alive?/1)
+
+    Enum.each(alive_documents, fn other_document ->
+      DeltaCrdt.set_neighbours(new_document, [other_document])
+      DeltaCrdt.set_neighbours(other_document, [new_document])
     end)
+
+    #DeltaCrdt.set_neighbours(new_document, [others_document])
+    #Enum.map(others_document, fn other_document ->
+    #  DeltaCrdt.set_neighbours(other_document,[new_document])
+    #  inspect(DeltaCrdt.to_map(other_document))  # TODO Remove
+    #end)
     Logger.debug("Linked new CRDT #{inspect(new_document)} with other's CRDT: #{inspect(others_document)}")
-    Process.sleep(10) # need to wait for propagation for the doctest TODO remove
+
     DeltaCrdt.to_map(new_document) # TODO Remove
   end
 

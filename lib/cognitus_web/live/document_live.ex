@@ -5,6 +5,8 @@ defmodule CognitusWeb.DocumentLive do
   use CognitusWeb, :live_view
   require Logger
   alias Cognitus.PresenceHelper
+  alias Cognitus.Document
+  alias Cognitus.DocumentTitleAgent
   alias CognitusWeb.UsernameService
   alias CognitusWeb.Presence
 
@@ -22,7 +24,7 @@ defmodule CognitusWeb.DocumentLive do
 
     # Generate a username, a color and a document for the new user
     {username, username_color} = UsernameService.generate_username()
-    {:ok, document} = Cognitus.Document.create_document()
+    {:ok, document} = Document.create_document()
 
     if connected?(socket) do
       # Subscribe to PubSub for title and peers updates
@@ -35,8 +37,7 @@ defmodule CognitusWeb.DocumentLive do
       %{
         username: username,
         color: username_color,
-        document: document,
-        joined_at: DateTime.utc_now()   # TODO Final cleanup: remove unless we use it
+        document: document
       })
     end
 
@@ -44,8 +45,10 @@ defmodule CognitusWeb.DocumentLive do
     users = Presence.list("peers")
 
     # Link CRDT documents
-    Cognitus.Document.link_documents(document, others_document)
+    Document.link_documents(document, others_document)
 
+    IO.puts("Current Document Map:") # TODO remove
+    IO.inspect(DeltaCrdt.to_map(document))
     IO.puts("OTHER PEERS DOCUMENT") # TODO remove
     IO.inspect(others_document)
     IO.puts("CURRENT DOCUMENT") # TODO remove
@@ -54,7 +57,7 @@ defmodule CognitusWeb.DocumentLive do
     # debugging
     Logger.info("#{username} has joined shared document. Users after join: #{inspect(PresenceHelper.list_instances(:username))}.")
 
-    current_text = Cognitus.Document.update_text_from_document(document)
+    current_text = Document.update_text_from_document(document)
     Logger.debug("Sending current document text to new user: #{inspect(current_text)}")
 
     # Assign the document to the socket and send the initial peer list and current username to the client
@@ -64,7 +67,7 @@ defmodule CognitusWeb.DocumentLive do
       |> assign(:username, username)
       |> assign(:document, document)
       |> assign(:editing_title, false)
-      |> assign(:title, Cognitus.DocumentTitleAgent.get_title())
+      |> assign(:title, DocumentTitleAgent.get_title())
       |> assign(:text, current_text)
     {:ok, socket}
   end
@@ -95,7 +98,7 @@ defmodule CognitusWeb.DocumentLive do
 
   # Handling event "Save a new document's title"
   def handle_event("save_title", %{"title" => new_title}, socket) do
-    Cognitus.DocumentTitleAgent.set_title(new_title)
+    DocumentTitleAgent.set_title(new_title)
     # Broadcast the new title to all of the connected clients
     Phoenix.PubSub.broadcast(
       Cognitus.PubSub,
@@ -128,9 +131,9 @@ defmodule CognitusWeb.DocumentLive do
   def handle_event("insert_character", %{"ch_value" => ch_value, "position" => position}, socket) do
     current_peer_id = socket.id
     document = socket.assigns[:document]
-    Cognitus.Document.insert(document, position, current_peer_id, ch_value)
+    Document.insert(document, position, current_peer_id, ch_value)
 
-    updated_text = Cognitus.Document.update_text_from_document(document)
+    updated_text = Document.update_text_from_document(document)
 #    Phoenix.PubSub.broadcast(                      # TODO verify if necessary, else remove (should go through Delta CRDT)
 #      Cognitus.PubSub,
 #      "document_updates",
@@ -145,8 +148,8 @@ defmodule CognitusWeb.DocumentLive do
   @impl true
   def handle_event("delete_character", %{"position" => position}, socket) do
     document = socket.assigns[:document]
-    ch_value = Cognitus.Document.delete(document, position)
-    updated_text = Cognitus.Document.update_text_from_document(document)
+    ch_value = Document.delete(document, position)
+    updated_text = Document.update_text_from_document(document)
 
 #    Phoenix.PubSub.broadcast(                                               # TODO verify if necessary, else remove (should go through Delta CRDT)
 #      Cognitus.PubSub,
