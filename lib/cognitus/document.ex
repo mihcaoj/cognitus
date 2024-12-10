@@ -38,7 +38,7 @@ defmodule Cognitus.Document do
     #end)
     Logger.debug("Linked new CRDT #{inspect(new_document)} with other's CRDT: #{inspect(others_document)}")
 
-    DeltaCrdt.to_map(new_document) # TODO Remove
+    #DeltaCrdt.to_map(new_document) # TODO Remove
   end
 
   @spec insert(document(), integer(), integer(), char()) :: document()

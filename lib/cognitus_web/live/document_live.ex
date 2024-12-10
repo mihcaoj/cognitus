@@ -7,6 +7,7 @@ defmodule CognitusWeb.DocumentLive do
   alias Cognitus.PresenceHelper
   alias Cognitus.Document
   alias Cognitus.DocumentTitleAgent
+  alias Cognitus.PubSub
   alias CognitusWeb.UsernameService
   alias CognitusWeb.Presence
 
@@ -27,13 +28,13 @@ defmodule CognitusWeb.DocumentLive do
     {:ok, document} = Document.create_document()
 
     if connected?(socket) do
-      # Subscribe to PubSub for title and peers updates
-      topics = ["title_updates","peers"]
-      Enum.map(topics, fn topic -> Phoenix.PubSub.subscribe(Cognitus.PubSub, topic) end)
+      # Subscribe to PubSub for title and user updates
+      topics = ["title_updates", "users", "document_updates"]
+      Enum.map(topics, fn topic -> Phoenix.PubSub.subscribe(PubSub, topic) end)
       Logger.debug("#{username}'s socket is connected and user is subscribed to topics #{inspect(topics)}")
 
       # Track presence
-      Presence.track(self(), "peers", socket.id,
+      Presence.track(self(), "users", socket.id,
       %{
         username: username,
         color: username_color,
@@ -42,14 +43,14 @@ defmodule CognitusWeb.DocumentLive do
     end
 
     # Fetch all connected users
-    users = Presence.list("peers")
+    users = Presence.list("users")
 
     # Link CRDT documents
     Document.link_documents(document, others_document)
 
     IO.puts("Current Document Map:") # TODO remove
     IO.inspect(DeltaCrdt.to_map(document))
-    IO.puts("OTHER PEERS DOCUMENT") # TODO remove
+    IO.puts("OTHER USERS DOCUMENT") # TODO remove
     IO.inspect(others_document)
     IO.puts("CURRENT DOCUMENT") # TODO remove
     IO.inspect(document)
@@ -72,10 +73,11 @@ defmodule CognitusWeb.DocumentLive do
     {:ok, socket}
   end
 
+  # -------------------------- PRESENCE DIFFS ----------------------------
   @impl true
   def handle_info(%{event: "presence_diff", payload: %{joins: _joins, leaves: _leaves}}, socket) do
     # Fetch the updated list of users from Presence
-    users = Presence.list("peers")
+    users = Presence.list("users")
 
     {:noreply, assign(socket, :users, users)}
   end
@@ -101,7 +103,7 @@ defmodule CognitusWeb.DocumentLive do
     DocumentTitleAgent.set_title(new_title)
     # Broadcast the new title to all of the connected clients
     Phoenix.PubSub.broadcast(
-      Cognitus.PubSub,
+      PubSub,
       "title_updates",
       %{event: "title_updated", title: new_title}
     )
@@ -135,7 +137,7 @@ defmodule CognitusWeb.DocumentLive do
 
     updated_text = Document.update_text_from_document(document)
 #    Phoenix.PubSub.broadcast(                      # TODO verify if necessary, else remove (should go through Delta CRDT)
-#      Cognitus.PubSub,
+#      PubSub,
 #      "document_updates",
 #      %{event: "text_updated", text: updated_text}
 #    )
@@ -152,7 +154,7 @@ defmodule CognitusWeb.DocumentLive do
     updated_text = Document.update_text_from_document(document)
 
 #    Phoenix.PubSub.broadcast(                                               # TODO verify if necessary, else remove (should go through Delta CRDT)
-#      Cognitus.PubSub,
+#      PubSub,
 #      "document_updates",
 #      %{event: "text_updated", text: updated_text}
 #    )
