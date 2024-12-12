@@ -59,7 +59,6 @@ defmodule Cognitus.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.5"},
-      {:elixir_uuid, "~> 1.2"}, # UUID support (used to assign unique id for socket)
       {:delta_crdt, "~> 0.6.5"}
     ]
   end
