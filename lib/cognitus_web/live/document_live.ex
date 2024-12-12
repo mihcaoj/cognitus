@@ -12,7 +12,7 @@ defmodule CognitusWeb.DocumentLive do
   alias CognitusWeb.Presence
 
   #########################################################################
-  ######################### JOIN AND LEAVE EVENTS #########################
+  #################### MOUNTING (JOIN & LEAVE EVENTS) #####################
   #########################################################################
 
   @doc """
@@ -31,9 +31,11 @@ defmodule CognitusWeb.DocumentLive do
       # Subscribe to PubSub for title and user updates
       topics = ["title_updates", "users", "document_updates"]
       Enum.map(topics, fn topic -> Phoenix.PubSub.subscribe(PubSub, topic) end)
+
+      # Debugging TODO: REMOVE
       Logger.debug("#{username}'s socket is connected and user is subscribed to topics #{inspect(topics)}")
 
-      # Track presence
+      # Track user presence
       Presence.track(self(), "users", socket.id,
       %{
         username: username,
@@ -48,20 +50,27 @@ defmodule CognitusWeb.DocumentLive do
     # Link CRDT documents
     Document.link_documents(document, others_document)
 
-    IO.puts("Current Document Map:") # TODO remove
+    # Debugging TODO: REMOVE
+    IO.puts("Current Document Map:")
     IO.inspect(DeltaCrdt.to_map(document))
-    IO.puts("OTHER USERS DOCUMENT") # TODO remove
+    IO.puts("OTHER USERS DOCUMENT")
     IO.inspect(others_document)
-    IO.puts("CURRENT DOCUMENT") # TODO remove
+    IO.puts("CURRENT DOCUMENT")
     IO.inspect(document)
-
-    # debugging
     Logger.info("#{username} has joined shared document. Users after join: #{inspect(PresenceHelper.list_instances(:username))}.")
 
     current_text = Document.update_text_from_document(document)
+
+    # Debugging TODO: REMOVE
     Logger.debug("Sending current document text to new user: #{inspect(current_text)}")
 
-    # Assign the document to the socket and send the initial peer list and current username to the client
+    # Initialize socket with initial state:
+    # - connected users list
+    # - current user's username
+    # - CRDT document reference
+    # - title editing flag
+    # - current document title
+    # - current document text
     socket =
       socket
       |> assign(:users, users)
@@ -73,7 +82,11 @@ defmodule CognitusWeb.DocumentLive do
     {:ok, socket}
   end
 
-  # -------------------------- PRESENCE DIFFS ----------------------------
+  #########################################################################
+  ############################### HANDLERS ################################
+  #########################################################################
+
+  # -------------------------- PRESENCE DIFFS --------------------------
   @impl true
   def handle_info(%{event: "presence_diff", payload: %{joins: _joins, leaves: _leaves}}, socket) do
     # Fetch the updated list of users from Presence
@@ -82,16 +95,7 @@ defmodule CognitusWeb.DocumentLive do
     {:noreply, assign(socket, :users, users)}
   end
 
-  #########################################################################
-  ######################### RENDER BROWSER'S VIEW #########################
-  #########################################################################
-
-  # Automatically render template cognitus_web/live/document_live.html.heex
-
-  #########################################################################
-  ############################# HANDLE EVENTS #############################
-  #########################################################################
-  # -------------------------- DOCUMENT'S TITLE --------------------------
+  # -------------------------- DOCUMENT TITLE --------------------------
   # Handling event "Enter document's title edition mode"
   def handle_event("edit_title", _params, socket) do
     Logger.info("#{socket.assigns[:username]} has entered in title edition mode.")
@@ -127,48 +131,62 @@ defmodule CognitusWeb.DocumentLive do
     {:noreply, assign(socket, title: new_title)}
   end
 
-  # ------------------------- DOCUMENT'S UPDATE -------------------------
+  # -------------------------- DOCUMENT UPDATES --------------------------
   # Handling event "insertion of a character"
   @impl true
   def handle_event("insert_character", %{"ch_value" => ch_value, "position" => position}, socket) do
     current_peer_id = socket.id
     document = socket.assigns[:document]
     Document.insert(document, position, current_peer_id, ch_value)
-
     updated_text = Document.update_text_from_document(document)
-#    Phoenix.PubSub.broadcast(                      # TODO verify if necessary, else remove (should go through Delta CRDT)
-#      PubSub,
-#      "document_updates",
-#      %{event: "text_updated", text: updated_text}
-#    )
 
+    # Broadcast the update to all of the LiveView processes
+    Phoenix.PubSub.broadcast(
+      PubSub,
+      "document_updates",
+      %{event: "text_updated", text: updated_text}
+    )
+
+    # Debugging (TODO: REMOVE WHEN FINISHED IMPLEMENTING)
     Logger.info("#{socket.assigns[:username]} has inserted character #{ch_value} at position #{position}.")
     Logger.debug("Document state of #{socket.assigns[:username]} after insertion operation: #{updated_text}")
+
+    # Update this LiveView process's state with the updated text
     {:noreply, assign(socket, :text, updated_text)}
   end
 
+  # Handling event "deletion of a character"
   @impl true
   def handle_event("delete_character", %{"position" => position}, socket) do
     document = socket.assigns[:document]
     ch_value = Document.delete(document, position)
     updated_text = Document.update_text_from_document(document)
 
-#    Phoenix.PubSub.broadcast(                                               # TODO verify if necessary, else remove (should go through Delta CRDT)
-#      PubSub,
-#      "document_updates",
-#      %{event: "text_updated", text: updated_text}
-#    )
+    # Broadcast the update to all of the LiveView processes
+    Phoenix.PubSub.broadcast(
+      PubSub,
+      "document_updates",
+      %{event: "text_updated", text: updated_text}
+    )
+
+    # Debugging (TODO: REMOVE WHEN FINISHED IMPLEMENTING)
     Logger.info("#{socket.assigns[:username]} has deleted character #{ch_value} at position #{position}.")
     Logger.debug("Document state of #{socket.assigns[:username]} after deletion operation: #{updated_text}")
 
+    # Update this LiveView process's state with the updated text
     {:noreply, assign(socket, :text, updated_text)}
   end
 
-#  @impl true
-#  def handle_info(%{event: "text_updated", text: updated_text}, socket) do  # TODO verify if necessary, else remove (should go through Delta CRDT)
-#    Logger.debug("Received updated text: #{updated_text}")
-#
-#    {:noreply, assign(socket, :text, updated_text)}
-#  end
-
+  # Handling info for "text updates"
+  # This gets called in all of the LiveView processes when they receive the PubSub broadcast
+  @impl true
+  def handle_info(%{event: "text_updated", text: updated_text}, socket) do
+    Logger.debug("Received updated text: #{updated_text}") # TODO: REMOVE
+    # Update the LiveView process's socket assigns with the updated text
+    socket = assign(socket, :text, updated_text)
+    # Push the text update to the client connected to this LiveView process
+    # Without this, the UI wouldn't update in real-time for other users
+    # Even though the CRDT syncs server state, we need this to sync the UI
+    {:noreply, push_event(socket, "text_updated", %{text: updated_text})}
+  end
 end

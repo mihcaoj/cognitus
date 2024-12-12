@@ -35,3 +35,5 @@ cognitus-*.tar
 npm-debug.log
 /assets/node_modules/
 
+# .DS_STORE files
+.DS_STORE
