@@ -28,8 +28,8 @@ defmodule CognitusWeb.DocumentLive do
     {:ok, document} = Document.create_document()
 
     if connected?(socket) do
-      # Subscribe to PubSub for title and user updates
-      topics = ["title_updates", "users", "document_updates"]
+      # Subscribe to PubSub for title, users, document and caret updates
+      topics = ["title_updates", "users", "document_updates", "caret_updates"]
       Enum.map(topics, fn topic -> Phoenix.PubSub.subscribe(PubSub, topic) end)
 
       # Debugging TODO: REMOVE
@@ -79,6 +79,7 @@ defmodule CognitusWeb.DocumentLive do
       |> assign(:editing_title, false)
       |> assign(:title, DocumentTitleAgent.get_title())
       |> assign(:text, current_text)
+      |> assign(:caret_positions, %{})
     {:ok, socket}
   end
 
@@ -189,4 +190,64 @@ defmodule CognitusWeb.DocumentLive do
     # Even though the CRDT syncs server state, we need this to sync the UI
     {:noreply, push_event(socket, "text_updated", %{text: updated_text})}
   end
+
+  # -------------------------- CARET UPDATES --------------------------
+  # Handling event for updating caret position
+  @impl true
+  def handle_event("update_caret", %{"position" => position}, socket) do
+    username = socket.assigns.username
+    color = get_user_color(socket)
+
+    # Broadcast caret position to all clients
+    Phoenix.PubSub.broadcast(
+      PubSub,
+      "caret_updates",
+      %{
+        event: "caret_updated",
+        username: username,
+        position: position,
+        color: color
+      }
+    )
+
+    # Update local state
+    new_positions = Map.put(socket.assigns.caret_positions, username, %{
+      position: position,
+      color: color
+    })
+
+    {:noreply, assign(socket, :caret_positions, new_positions)}
+  end
+
+  # Handling info for "caret updates"
+  @impl true
+  def handle_info(%{event: "caret_updated", username: username, position: position, color: color}, socket) do
+    new_positions = Map.put(socket.assigns.caret_positions, username,
+    %{
+      position: position,
+      color: color
+    })
+
+    # Broadcast positions to the client
+    positions = Enum.map(new_positions, fn {username, data} ->
+      %{
+        username: username,
+        position: data.position,
+        color: data.color
+      }
+    end)
+
+    {:noreply, push_event(socket, "caret_positions", %{positions: positions})}
+  end
+
+  # Helper function to get user color
+  defp get_user_color(socket) do
+    case Enum.find(socket.assigns.users, fn {_id, %{metas: metas}} ->
+      Enum.find(metas, &(&1.username == socket.assigns.username))
+    end) do
+      {_id, %{metas: [meta | _]}} -> meta.color
+      _ -> "#000000" # Default color if not found
+    end
+  end
+
 end

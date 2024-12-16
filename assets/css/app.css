@@ -160,3 +160,28 @@ footer {
 #user-list li.current-user:after {
   content: "👤";
 }
+
+.editor-container {
+  position: relative;
+  width: 100%;
+}
+
+.user-caret {
+  position: absolute;
+  width: 2px;
+  height: 20px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.caret-label {
+  position: absolute;
+  top: -20px;
+  left: 0;
+  font-size: 12px;
+  white-space: nowrap;
+  padding: 2px 4px;
+  border-radius: 3px;
+  color: white;
+  z-index: 3;
+}

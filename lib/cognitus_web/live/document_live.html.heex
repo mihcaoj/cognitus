@@ -11,8 +11,9 @@
     <h1><%= @title %></h1>
   <% end %>
 </div>
-<textarea id="editor" phx-hook="EditorHook" rows="20" cols="60" placeholder="Start typing..."><%= @text %></textarea>
-
+<div class="editor-container">
+<textarea id="editor" phx-hook="EditorHook" data-username={@username} rows="20" cols="60" placeholder="Start typing..."><%= @text %></textarea>
+</div>
 <div id="presence-container">
   <h2>Connected Users</h2>
   <ul id="user-list">
