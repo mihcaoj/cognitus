@@ -1,0 +1,33 @@
+.dockerignore
+
+# Ignore build artifacts
+/_build
+/deps
+/assets/node_modules
+/priv/static/assets
+/priv/static/cache_manifest.json
+/priv/uploads
+
+# Ignore the test files and artifacts
+/test
+
+# Ignore the version control directory
+.git
+.gitignore
+
+# Ignore environment files
+.env
+.env.example
+
+# Ignore logs and temporary files
+/log
+/tmp
+*.log
+
+# Ignore IDE and editor-specific files
+.vscode
+.idea
+
+# Ignore any local configuration files
+config/dev.exs
+config/test.exs

@@ -10,6 +10,9 @@ defmodule CognitusWeb.DocumentLive do
   alias Cognitus.PubSub
   alias CognitusWeb.UsernameService
   alias CognitusWeb.Presence
+  alias Cognitus.Repo
+  alias Cognitus.DocumentSchema
+  import Ecto.Query
 
   #########################################################################
   #################### MOUNTING (JOIN & LEAVE EVENTS) #####################
@@ -26,6 +29,19 @@ defmodule CognitusWeb.DocumentLive do
     # Generate a username, a color and a document for the new user
     {username, username_color} = UsernameService.generate_username()
     {:ok, document} = Document.create_document()
+
+    # Fetch the first document from the database or create a new one if none exists
+    # Using Repo.one with a limit of 1 since we currently support only one document
+    db_document = case Repo.one(from d in DocumentSchema, limit: 1) do
+      nil ->
+        # No document exists - create default one with default values
+        %DocumentSchema{
+          title: "Untitled Document",
+          content: "",
+        } |> Repo.insert!()
+
+      doc -> doc # if a document is found, return it
+    end
 
     if connected?(socket) do
       # Subscribe to PubSub for title, users, document and caret updates
@@ -76,9 +92,12 @@ defmodule CognitusWeb.DocumentLive do
       |> assign(:users, users)
       |> assign(:username, username)
       |> assign(:document, document)
+      |> assign(:db_document, db_document)
       |> assign(:editing_title, false)
-      |> assign(:title, DocumentTitleAgent.get_title())
-      |> assign(:text, current_text)
+      #|> assign(:title, DocumentTitleAgent.get_title())
+      #|> assign(:text, current_text)
+      |> assign(:title, db_document.title)
+      |> assign(:text, db_document.content || "")
       |> assign(:caret_positions, %{})
     {:ok, socket}
   end
@@ -106,6 +125,12 @@ defmodule CognitusWeb.DocumentLive do
   # Handling event "Save a new document's title"
   def handle_event("save_title", %{"title" => new_title}, socket) do
     DocumentTitleAgent.set_title(new_title)
+
+    # Save title to database
+    socket.assigns.db_document
+    |> DocumentSchema.changeset(%{title: new_title})
+    |> Repo.update()
+
     # Broadcast the new title to all of the connected clients
     Phoenix.PubSub.broadcast(
       PubSub,
@@ -140,6 +165,11 @@ defmodule CognitusWeb.DocumentLive do
     document = socket.assigns[:document]
     Document.insert(document, position, current_peer_id, ch_value)
     updated_text = Document.update_text_from_document(document)
+
+    # Save changes to database
+    socket.assigns.db_document
+    |> DocumentSchema.changeset(%{content: updated_text})
+    |> Repo.update()
 
     # Broadcast the update to all of the LiveView processes
     Phoenix.PubSub.broadcast(
@@ -176,6 +206,11 @@ defmodule CognitusWeb.DocumentLive do
     end
 
     updated_text = Document.update_text_from_document(document)
+
+    # Save changes to database
+    socket.assigns.db_document
+    |> DocumentSchema.changeset(%{content: updated_text})
+    |> Repo.update()
 
     # Broadcast the update to all of the LiveView processes
     Phoenix.PubSub.broadcast(
@@ -225,7 +260,8 @@ defmodule CognitusWeb.DocumentLive do
     )
 
     # Update local state
-    new_positions = Map.put(socket.assigns.caret_positions, username, %{
+    new_positions = Map.put(socket.assigns.caret_positions, username,
+    %{
       position: position,
       color: color
     })

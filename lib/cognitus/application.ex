@@ -13,7 +13,7 @@ defmodule Cognitus.Application do
       {DNSCluster, query: Application.get_env(:cognitus, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Cognitus.PubSub},
       # Start the Finch HTTP client for sending emails
-      {Finch, name: Cognitus.Finch},
+      #{Finch, name: Cognitus.Finch},
       # Start a worker by calling: Cognitus.Worker.start_link(arg)
       # {Cognitus.Worker, arg},
       # Start to serve requests, typically the last entry
