@@ -18,7 +18,9 @@
   <ul id="user-list">
     <%= for {_id, %{metas: metas}} <- @users do %>
       <%= for meta <- metas do %>
-        <li style={"color: #{meta.color};"}><%= meta.username %></li>
+        <li style={"color: #{meta.color};"} class={"#{if meta.username == @username, do: "current-user", else: ""}"}>
+            <%= meta.username %>
+        </li>
       <% end %>
     <% end %>
   </ul>
