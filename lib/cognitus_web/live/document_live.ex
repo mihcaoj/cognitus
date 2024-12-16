@@ -158,9 +158,23 @@ defmodule CognitusWeb.DocumentLive do
 
   # Handling event "deletion of a character"
   @impl true
-  def handle_event("delete_character", %{"position" => position}, socket) do
+  def handle_event("delete_character", %{"position_start" => position_start, "position_end" => position_end}, socket) do
     document = socket.assigns[:document]
-    ch_value = Document.delete(document, position)
+    if position_start == position_end do
+      {document, ch_value} = Document.delete(document, position_start-1)
+      Logger.info("#{socket.assigns[:username]} has deleted character #{ch_value} at position #{position_start-1}.")
+    else
+      interval_end = position_end - 1
+      positions_to_delete = interval_end..position_start
+      IO.inspect(positions_to_delete)
+      {document, deleted_characters} =
+        Enum.reduce(positions_to_delete, {document, []}, fn position, {acc_doc, acc_ch} ->
+          {new_doc, ch_value} = Document.delete(acc_doc, position)
+          {new_doc, [ch_value | acc_ch]} # Accumulate the deleted characters and use last document
+        end) # Reverse the order of accumulated deleted characters
+      Logger.info("#{socket.assigns[:username]} has deleted characters #{inspect(deleted_characters)} between positions #{position_start} and #{interval_end}.")
+    end
+
     updated_text = Document.update_text_from_document(document)
 
     # Broadcast the update to all of the LiveView processes
@@ -171,7 +185,7 @@ defmodule CognitusWeb.DocumentLive do
     )
 
     # Debugging (TODO: REMOVE WHEN FINISHED IMPLEMENTING)
-    Logger.info("#{socket.assigns[:username]} has deleted character #{ch_value} at position #{position}.")
+
     Logger.debug("Document state of #{socket.assigns[:username]} after deletion operation: #{updated_text}")
 
     # Update this LiveView process's state with the updated text

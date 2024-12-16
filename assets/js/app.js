@@ -121,16 +121,23 @@ Hooks.EditorHook = {
         editor.addEventListener("keyup", updateCaretPosition);
         // Event listener for local user input
         editor.addEventListener("input", (event) => {
-            updateCaretPosition() // update the caret position upon input
             let ch_value = event.data; // inserted char
-            let cursor_position = editor.selectionStart; // cursor position before input
-            
+            let position = editor.selectionStart;
+
             // Send the appropriate event to LiveView based on the input type
             if (ch_value != null){
-                this.pushEvent("insert_character", { ch_value: ch_value, position: cursor_position - 1 });
-            } else
-            {
-                this.pushEvent("delete_character", { position: cursor_position });
+                updateCaretPosition() // update the caret position upon input
+                this.pushEvent("insert_character", { ch_value: ch_value, position: position - 1 });
+            }
+        });
+
+        editor.addEventListener("keydown", (event) => {
+            if (event.key === "Delete" || event.key === "Backspace") {
+                updateCaretPosition() // update the caret position upon input
+                let position_start = editor.selectionStart;
+                let position_end = editor.selectionEnd;
+
+                this.pushEvent("delete_character", { position_start: position_start , position_end: position_end});
             }
         });
     }

@@ -55,7 +55,7 @@ defmodule Cognitus.Document do
     Logger.debug("CRDT state after insert: #{inspect(DeltaCrdt.to_map(document))}")
   end
 
-  @spec delete(document(), ch_id()) :: document()
+  @spec delete(document(), ch_id()) :: {document(), char()}
   @doc """
   Delete a character from text document given its physical position
   """
@@ -63,7 +63,7 @@ defmodule Cognitus.Document do
     ch_id = get_ch_id_at_position(document, position)
     ch_value = DeltaCrdt.get(document, ch_id)
     DeltaCrdt.delete(document, ch_id)
-    ch_value
+    {document, ch_value}
   end
 
   @spec update_text_from_document(document()) :: String.t()
