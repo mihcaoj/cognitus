@@ -48,7 +48,6 @@ defmodule CognitusWeb.DocumentLive do
       topics = ["title_updates", "users", "document_updates", "caret_updates"]
       Enum.map(topics, fn topic -> Phoenix.PubSub.subscribe(PubSub, topic) end)
 
-      # Debugging TODO: REMOVE - Séverine: pas sûre qu'il faille enlever ça reste du debugging
       Logger.debug("#{username}'s socket is connected and user is subscribed to topics #{inspect(topics)}")
 
       # Track user presence
@@ -67,15 +66,15 @@ defmodule CognitusWeb.DocumentLive do
     Document.link_documents(document, others_document)
     Logger.info("#{username} has joined shared document. Users after join: #{inspect(PresenceHelper.list_instances(:username))}.")
 
-    current_text = Document.update_text_from_document(document)
-
     # Initialize socket with initial state:
     # - connected users list
     # - current user's username
     # - CRDT document reference
+    # - database document reference
     # - title editing flag
-    # - current document title
-    # - current document text
+    # - current document title from database
+    # - current document text from database
+    # - map of other users caret positions
     socket =
       socket
       |> assign(:users, users)
@@ -83,8 +82,6 @@ defmodule CognitusWeb.DocumentLive do
       |> assign(:document, document)
       |> assign(:db_document, db_document)
       |> assign(:editing_title, false)
-      #|> assign(:title, DocumentTitleAgent.get_title())
-      #|> assign(:text, current_text)
       |> assign(:title, db_document.title)
       |> assign(:text, db_document.content || "")
       |> assign(:caret_positions, %{})
@@ -177,13 +174,15 @@ defmodule CognitusWeb.DocumentLive do
   @impl true
   def handle_event("delete_character", %{"position_start" => position_start, "position_end" => position_end}, socket) do
     document = socket.assigns[:document]
+
     if position_start == position_end do
-      {document, ch_value} = Document.delete(document, position_start-1)
-      Logger.info("#{socket.assigns[:username]} has deleted character #{ch_value} at position #{position_start-1}.")
+      {document, ch_value} = Document.delete(document, position_start - 1)
+      Logger.info("#{socket.assigns[:username]} has deleted character #{ch_value} at position #{position_start - 1}.")
     else
       interval_end = position_end - 1
       positions_to_delete = interval_end..position_start
       IO.inspect(positions_to_delete)
+
       {document, deleted_characters} =
         Enum.reduce(positions_to_delete, {document, []}, fn position, {acc_doc, acc_ch} ->
           {new_doc, ch_value} = Document.delete(acc_doc, position)
