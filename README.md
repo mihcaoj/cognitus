@@ -1,6 +1,6 @@
 # CognitUs
 
-CognitUs is a web-based, real-time collaborative text editor built with the Phoenix Framework.
+CognitUs is a real-time collaborative text editor built with the Phoenix Framework.
 
 ## Architecture
 
@@ -27,11 +27,11 @@ CognitUs is a web-based, real-time collaborative text editor built with the Phoe
 
 If running with Docker, you will need:
 - Docker (https://www.docker.com)
-- Erlang (https://www.erlang.org/downloads)
+- Erlang (https://www.erlang.org/downloads) - <u>Required for Elixir</u>
 - Elixir (needed to generate secret key)
 
 If running on your local machine, you will need to install:
-- Erlang (https://www.erlang.org/downloads)
+- Erlang (https://www.erlang.org/downloads) - <u>Required for Elixir</u>
 - Elixir (https://elixir-lang.org/install.html)
 - PostgreSQL (https://www.postgresql.org/download/)
 
@@ -40,6 +40,8 @@ If running on your local machine, you will need to install:
 1. Clone the repo
 ```bash
 git clone https://github.com/mihcaoj/cognitus
+```
+```bash
 cd cognitus
 ```
 
@@ -63,7 +65,11 @@ for /f "delims=" %A in ('mix phx.gen.secret') do set SECRET_KEY_BASE=%A && echo 
 Powershell:
 ```powershell
 Copy-Item .env.example .env
+```
+```powershell
 $secret = mix phx.gen.secret
+```
+```powershell
 Add-Content .env "SECRET_KEY_BASE=$secret"
 ```
 
@@ -80,6 +86,8 @@ docker-compose up -d --build
 4. Create and migrate the database (in another terminal)
 ```bash
 docker-compose exec app mix ecto.create
+```
+```bash
 docker-compose exec app mix ecto.migrate
 ```
 
@@ -95,6 +103,8 @@ docker-compose down -v
 1. Clone the repo
 ```bash
 git clone https://github.com/mihcaoj/cognitus
+```
+```bash
 cd cognitus
 ```
 
@@ -141,6 +151,8 @@ mix phx.gen.secret
 5.1 For Unix-Like systems (Linux / MacOS)
 ```bash
 sudo -u postgres psql
+```
+```bash
 \password postgres
 ```
 
@@ -149,12 +161,16 @@ sudo -u postgres psql
 Windows Powershell:
 ```powershell
 psql -U postgres
+```
+```powershell
 \password postgres
 ```
 
 6. Create and migrate the database
 ```elixir
 mix ecto.create
+```
+```elixir
 mix ecto.migrate
 ```
 
@@ -169,3 +185,4 @@ mix phx.server
 - If the database fails to start, ensure PostgreSQL is not running locally on port 5432
 - If mix commands fail in Docker, ensure you've completed the environment setup
 - For connection issues, verify you're using http://localhost:4000
+- While testing on a linux machine, ran into a problem with the mint dependency, try: mix deps.get mint hpax
