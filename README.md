@@ -27,11 +27,11 @@ CognitUs is a real-time collaborative text editor built with the Phoenix Framewo
 
 If running with Docker, you will need:
 - Docker (https://www.docker.com)
-- Erlang (https://www.erlang.org/downloads) - <u>Required for Elixir</u>
+- Erlang (https://www.erlang.org/downloads) - Required for Elixir
 - Elixir (needed to generate secret key)
 
 If running on your local machine, you will need to install:
-- Erlang (https://www.erlang.org/downloads) - <u>Required for Elixir</u>
+- Erlang (https://www.erlang.org/downloads) - Required for Elixir
 - Elixir (https://elixir-lang.org/install.html)
 - PostgreSQL (https://www.postgresql.org/download/)
 
@@ -141,14 +141,9 @@ $secret = mix phx.gen.secret
 Add-Content .env "SECRET_KEY_BASE=$secret"
 ```
 
-4. Generate a secret key and update .env
-```elixir
-mix phx.gen.secret
-```
-
-5. Set PostgreSQL default password
+4. Set PostgreSQL default password
    
-5.1 For Unix-Like systems (Linux / MacOS)
+4.1 For Unix-Like systems (Linux / MacOS)
 ```bash
 sudo -u postgres psql
 ```
@@ -156,7 +151,7 @@ sudo -u postgres psql
 \password postgres
 ```
 
-5.2 For Windows
+4.2 For Windows
 
 Windows Powershell:
 ```powershell
@@ -166,7 +161,7 @@ psql -U postgres
 \password postgres
 ```
 
-6. Create and migrate the database
+5. Create and migrate the database
 ```elixir
 mix ecto.create
 ```
@@ -174,15 +169,15 @@ mix ecto.create
 mix ecto.migrate
 ```
 
-7. Start the Phoenix server
+6. Start the Phoenix server
 ```elixir
 mix phx.server
 ```
 
-8. Access the application at http://localhost:4000
+7. Access the application at http://localhost:4000
 
 ## Troubleshooting
 - If the database fails to start, ensure PostgreSQL is not running locally on port 5432
 - If mix commands fail in Docker, ensure you've completed the environment setup
 - For connection issues, verify you're using http://localhost:4000
-- While testing on a linux machine, ran into a problem with the mint dependency, try: mix deps.get mint hpax
+- While testing on a linux machine, if you run into a problem with the mint dependency, try: mix deps.get mint hpax
