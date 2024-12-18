@@ -1,6 +1,6 @@
-# Cognitus
+# CognitUs
 
-Cognitus is a web-based collaborative text editor built with the Phoenix Framework.
+CognitUs is a web-based, real-time collaborative text editor built with the Phoenix Framework.
 
 ## Architecture
 
@@ -26,14 +26,16 @@ Cognitus is a web-based collaborative text editor built with the Phoenix Framewo
 ## Prerequisites
 
 If running with Docker, you will need:
-- Docker
+- Docker (https://www.docker.com)
+- Erlang (https://www.erlang.org/downloads)
 - Elixir (needed to generate secret key)
 
 If running on your local machine, you will need to install:
-- Elixir 
-- Postgres 
+- Erlang (https://www.erlang.org/downloads)
+- Elixir (https://elixir-lang.org/install.html)
+- PostgreSQL (https://www.postgresql.org/download/)
 
-## Running with Docker (recommended)
+## Running with Docker
 
 1. Clone the repo
 ```bash
@@ -50,13 +52,15 @@ cp .env.example .env && echo SECRET_KEY_BASE=$(mix phx.gen.secret) >> .env
 
 2.2 For Windows
 
-Windows Command Prompt:
+Command Prompt:
 ```bash
 copy .env.example .env
+```
+```bash
 for /f "delims=" %A in ('mix phx.gen.secret') do set SECRET_KEY_BASE=%A && echo SECRET_KEY_BASE=%A>>.env
 ```
 
-Windows Powershell:
+Powershell:
 ```powershell
 Copy-Item .env.example .env
 $secret = mix phx.gen.secret
@@ -100,8 +104,31 @@ mix deps.get
 ```
 
 3. Set up environment variables
+
+3.1 For Unix-Like systems (Linux / MacOS)
 ```bash
-cp .env.example .env
+cp .env.example .env && echo SECRET_KEY_BASE=$(mix phx.gen.secret) >> .env
+```
+
+3.2 For Windows
+
+Command Prompt:
+```bash
+copy .env.example .env
+```
+```bash
+for /f "delims=" %A in ('mix phx.gen.secret') do set SECRET_KEY_BASE=%A && echo SECRET_KEY_BASE=%A>>.env
+```
+
+Powershell:
+```powershell
+Copy-Item .env.example .env
+```
+```powershell
+$secret = mix phx.gen.secret
+```
+```powershell
+Add-Content .env "SECRET_KEY_BASE=$secret"
 ```
 
 4. Generate a secret key and update .env
@@ -109,18 +136,34 @@ cp .env.example .env
 mix phx.gen.secret
 ```
 
-5. Create and migrate the database
+5. Set PostgreSQL default password
+   
+5.1 For Unix-Like systems (Linux / MacOS)
+```bash
+sudo -u postgres psql
+\password postgres
+```
+
+5.2 For Windows
+
+Windows Powershell:
+```powershell
+psql -U postgres
+\password postgres
+```
+
+6. Create and migrate the database
 ```elixir
 mix ecto.create
 mix ecto.migrate
 ```
 
-6. Start the Phoenix server
+7. Start the Phoenix server
 ```elixir
 mix phx.server
 ```
 
-7. Access the application at http://localhost:4000
+8. Access the application at http://localhost:4000
 
 ## Troubleshooting
 - If the database fails to start, ensure PostgreSQL is not running locally on port 5432
