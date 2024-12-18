@@ -47,31 +47,31 @@ cd cognitus
 
 2. Set up environment variables
 
-2.1 For Unix-Like systems (Linux / MacOS)
-```bash
-cp .env.example .env && echo SECRET_KEY_BASE=$(mix phx.gen.secret) >> .env
-```
+   2.1 For Unix-Like systems (Linux / MacOS)
+   ```bash
+   cp .env.example .env && echo SECRET_KEY_BASE=$(mix phx.gen.secret) >> .env
+   ```
 
-2.2 For Windows
+   2.2 For Windows
 
-Command Prompt:
-```bash
-copy .env.example .env
-```
-```bash
-for /f "delims=" %A in ('mix phx.gen.secret') do set SECRET_KEY_BASE=%A && echo SECRET_KEY_BASE=%A>>.env
-```
+   2.2.1 Command Prompt:
+   ```bash
+   copy .env.example .env
+   ```
+   ```bash
+   for /f "delims=" %A in ('mix phx.gen.secret') do set SECRET_KEY_BASE=%A && echo SECRET_KEY_BASE=%A>>.env
+   ```
 
-Powershell:
-```powershell
-Copy-Item .env.example .env
-```
-```powershell
-$secret = mix phx.gen.secret
-```
-```powershell
-Add-Content .env "SECRET_KEY_BASE=$secret"
-```
+   2.2.2 Powershell:
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+   ```powershell
+   $secret = mix phx.gen.secret
+   ```
+   ```powershell
+   Add-Content .env "SECRET_KEY_BASE=$secret"
+   ```
 
 3. Build & Start the Docker containers
 ```bash
@@ -98,6 +98,8 @@ docker-compose exec app mix ecto.migrate
 docker-compose down -v
 ```
 
+7. To test out the functionalities, you can open up two or more browser windows side to side and try inputting text in one or the other
+
 ## Local development setup
 
 1. Clone the repo
@@ -115,51 +117,49 @@ mix deps.get
 
 3. Set up environment variables
 
-3.1 For Unix-Like systems (Linux / MacOS)
-```bash
-cp .env.example .env && echo SECRET_KEY_BASE=$(mix phx.gen.secret) >> .env
-```
+   3.1 For Unix-Like systems (Linux / MacOS)
+   ```bash
+   cp .env.example .env && echo SECRET_KEY_BASE=$(mix phx.gen.secret) >> .env
+   ```
 
-3.2 For Windows
+   3.2 For Windows
 
-Command Prompt:
-```bash
-copy .env.example .env
-```
-```bash
-for /f "delims=" %A in ('mix phx.gen.secret') do set SECRET_KEY_BASE=%A && echo SECRET_KEY_BASE=%A>>.env
-```
+   3.2.1 Command Prompt:
+   ```bash
+   copy .env.example .env
+   ```
+   ```bash
+   for /f "delims=" %A in ('mix phx.gen.secret') do set SECRET_KEY_BASE=%A && echo SECRET_KEY_BASE=%A>>.env
+   ```
 
-Powershell:
-```powershell
-Copy-Item .env.example .env
-```
-```powershell
-$secret = mix phx.gen.secret
-```
-```powershell
-Add-Content .env "SECRET_KEY_BASE=$secret"
-```
+   3.2.2 Powershell:
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+   ```powershell
+   $secret = mix phx.gen.secret
+   ```
+   ```powershell
+   Add-Content .env "SECRET_KEY_BASE=$secret"
+   ```
 
 4. Set PostgreSQL default password
    
-4.1 For Unix-Like systems (Linux / MacOS)
-```bash
-sudo -u postgres psql
-```
-```bash
-\password postgres
-```
+   4.1 For Unix-Like systems (Linux / MacOS)
+   ```bash
+   sudo -u postgres psql
+   ```
+   ```bash
+   \password postgres
+   ```
 
-4.2 For Windows
-
-Windows Powershell:
-```powershell
-psql -U postgres
-```
-```powershell
-\password postgres
-```
+   4.2 For Windows Powershell:
+   ```powershell
+   psql -U postgres
+   ```
+   ```powershell
+   \password postgres
+   ```
 
 5. Create and migrate the database
 ```elixir
@@ -175,6 +175,8 @@ mix phx.server
 ```
 
 7. Access the application at http://localhost:4000
+
+8. To test out the functionalities, you can open up two or more browser windows side to side and try inputting text in one or the other
 
 ## Troubleshooting
 - If the database fails to start, ensure PostgreSQL is not running locally on port 5432
