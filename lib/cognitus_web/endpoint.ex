@@ -15,12 +15,6 @@ defmodule CognitusWeb.Endpoint do
     websocket: [connect_info: [session: @session_options]],
     longpoll: [connect_info: [session: @session_options]]
 
-  # TODO delete when sure we can delete channel
-  #Configures the WebSocket endpoint and connects to the UserSocket module
-  #socket "/socket", CognitusWeb.UserSocket,
-  #websocket: true,
-  #longpoll: false
-
   # Serve at "/" the static files from "priv/static" directory.
   #
   # You should set gzip to true if you are running phx.digest

@@ -31,14 +31,7 @@ defmodule Cognitus.Document do
       DeltaCrdt.set_neighbours(other_document, [new_document])
     end)
 
-    #DeltaCrdt.set_neighbours(new_document, [others_document])
-    #Enum.map(others_document, fn other_document ->
-    #  DeltaCrdt.set_neighbours(other_document,[new_document])
-    #  inspect(DeltaCrdt.to_map(other_document))  # TODO Remove
-    #end)
     Logger.debug("Linked new CRDT #{inspect(new_document)} with other's CRDT: #{inspect(others_document)}")
-
-    #DeltaCrdt.to_map(new_document) # TODO Remove
   end
 
   @spec insert(document(), integer(), integer(), char()) :: document()

@@ -48,7 +48,7 @@ defmodule CognitusWeb.DocumentLive do
       topics = ["title_updates", "users", "document_updates", "caret_updates"]
       Enum.map(topics, fn topic -> Phoenix.PubSub.subscribe(PubSub, topic) end)
 
-      # Debugging TODO: REMOVE
+      # Debugging TODO: REMOVE - Séverine: pas sûre qu'il faille enlever ça reste du debugging
       Logger.debug("#{username}'s socket is connected and user is subscribed to topics #{inspect(topics)}")
 
       # Track user presence
@@ -65,20 +65,9 @@ defmodule CognitusWeb.DocumentLive do
 
     # Link CRDT documents
     Document.link_documents(document, others_document)
-
-    # Debugging TODO: REMOVE
-    IO.puts("Current Document Map:")
-    IO.inspect(DeltaCrdt.to_map(document))
-    IO.puts("OTHER USERS DOCUMENT")
-    IO.inspect(others_document)
-    IO.puts("CURRENT DOCUMENT")
-    IO.inspect(document)
     Logger.info("#{username} has joined shared document. Users after join: #{inspect(PresenceHelper.list_instances(:username))}.")
 
     current_text = Document.update_text_from_document(document)
-
-    # Debugging TODO: REMOVE
-    Logger.debug("Sending current document text to new user: #{inspect(current_text)}")
 
     # Initialize socket with initial state:
     # - connected users list
@@ -178,9 +167,7 @@ defmodule CognitusWeb.DocumentLive do
       %{event: "text_updated", text: updated_text}
     )
 
-    # Debugging (TODO: REMOVE WHEN FINISHED IMPLEMENTING)
     Logger.info("#{socket.assigns[:username]} has inserted character #{ch_value} at position #{position}.")
-    Logger.debug("Document state of #{socket.assigns[:username]} after insertion operation: #{updated_text}")
 
     # Update this LiveView process's state with the updated text
     {:noreply, assign(socket, :text, updated_text)}
@@ -219,10 +206,6 @@ defmodule CognitusWeb.DocumentLive do
       %{event: "text_updated", text: updated_text}
     )
 
-    # Debugging (TODO: REMOVE WHEN FINISHED IMPLEMENTING)
-
-    Logger.debug("Document state of #{socket.assigns[:username]} after deletion operation: #{updated_text}")
-
     # Update this LiveView process's state with the updated text
     {:noreply, assign(socket, :text, updated_text)}
   end
@@ -231,7 +214,6 @@ defmodule CognitusWeb.DocumentLive do
   # This gets called in all of the LiveView processes when they receive the PubSub broadcast
   @impl true
   def handle_info(%{event: "text_updated", text: updated_text}, socket) do
-    Logger.debug("Received updated text: #{updated_text}") # TODO: REMOVE
     # Update the LiveView process's socket assigns with the updated text
     socket = assign(socket, :text, updated_text)
     # Push the text update to the client connected to this LiveView process
