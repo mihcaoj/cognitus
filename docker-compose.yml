@@ -4,25 +4,29 @@ services:
     ports:
       - "4000:4000"
     environment:
-      - SECRET_KEY_BASE=${SECRET_KEY_BASE}
-      - PHX_HOST=${PHX_HOST}
-      - DATABASE_URL=${DATABASE_URL}
+      - PHX_HOST=localhost
+      - DATABASE_URL=ecto://postgres:postgres@db/cognitus_prod
       - MIX_ENV=prod
-    command: sh -c "mix local.hex --force && mix deps.get --only prod && mix deps.compile && mix phx.server"
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
     depends_on:
-      - db
-    env_file:
-      - .env
+      db:
+        condition: service_healthy
     restart: unless-stopped
   
   db:
     image: postgres:15
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=cognitus_prod
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:

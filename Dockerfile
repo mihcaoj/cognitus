@@ -1,47 +1,61 @@
-# Use Elixir 1.15 with Alpine Linux (lightweight base image)
-FROM elixir:1.15-alpine
+# Build stage
+FROM elixir:1.15-alpine AS builder
 
-# Set environment
+# Set environment variable
 ENV MIX_ENV=prod
 
-# Install essential build tools and dependencies
-# build-base: Required for compiling dependencies
-# git: For fetching dependencies
-# python3: Required by some build processes
+# Install build dependencies
 RUN apk add --no-cache build-base git python3
 
-# Set the working directory in the container
+# Set working directory
 WORKDIR /app
 
-# Install Elixir's package manager (hex) and build tool (rebar)
+# Install hex and rebar
 RUN mix local.hex --force && \
-   mix local.rebar --force
+    mix local.rebar --force
 
-# Copy project dependency files first (for better caching)
+# Copy configuration files first
 COPY mix.exs mix.lock ./
-RUN mix deps.get --only prod && mix deps.compile
+COPY config/config.exs config/
+COPY config/prod.exs config/
 
-# Copy config
-COPY config config
+# Get dependencies
+RUN mix deps.get --only prod
 
-# Copy frontend asset files
+# Copy remaining application files
 COPY assets assets
-
-# Copy the rest of the application code
 COPY priv priv
 COPY lib lib
 
-# Return to main directory and build the release
+# Compile and build release
+RUN mix assets.deploy && \
+    mix compile && \
+    mix phx.digest
+
+# Runtime stage
+FROM elixir:1.15-alpine
+
+# Set environment variable
+ENV MIX_ENV=prod
+
+# Install runtime dependencies
+RUN apk add --no-cache openssl ncurses-libs netcat-openbsd build-base git
+
+# Install hex and rebar in runtime stage
+RUN mix local.hex --force && \
+    mix local.rebar --force
+
 WORKDIR /app
-RUN mix assets.deploy
-RUN mix compile
-RUN mix phx.digest
 
-# Set port
-ENV PORT=4000
+# Copy the build artifacts from builder stage
+COPY --from=builder /app /app
+COPY --from=builder /root/.mix /root/.mix
+COPY --from=builder /root/.hex /root/.hex
 
-# Define the port the container will listen on
+# Copy entrypoint script
+COPY docker-entrypoint.sh /app/
+RUN chmod +x /app/docker-entrypoint.sh
+
 EXPOSE 4000
 
-# Command to start the Phoenix server
-CMD ["mix", "phx.server"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

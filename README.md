@@ -26,9 +26,8 @@ CognitUs is a real-time collaborative text editor built with the Phoenix Framewo
 ## Prerequisites
 
 If running with Docker, you will need:
-- Docker (https://www.docker.com)
-- Erlang (https://www.erlang.org/downloads) - Required for Elixir
-- Elixir (needed to generate secret key)
+- Docker (https://www.docker.com/get-started)
+- Docker Compose (https://docs.docker.com/compose/install/) - Usually included w/Docker Desktop
 
 If running on your local machine, you will need to install:
 - Erlang (https://www.erlang.org/downloads) - Required for Elixir
@@ -45,60 +44,24 @@ git clone https://github.com/mihcaoj/cognitus
 cd cognitus
 ```
 
-2. Set up environment variables
-
-   2.1 For Unix-Like systems (Linux / MacOS)
-   ```bash
-   cp .env.example .env && echo SECRET_KEY_BASE=$(mix phx.gen.secret) >> .env
-   ```
-
-   2.2 For Windows
-
-   2.2.1 Command Prompt:
-   ```bash
-   copy .env.example .env
-   ```
-   ```bash
-   for /f "delims=" %A in ('mix phx.gen.secret') do set SECRET_KEY_BASE=%A && echo SECRET_KEY_BASE=%A>>.env
-   ```
-
-   2.2.2 Powershell:
-   ```powershell
-   Copy-Item .env.example .env
-   ```
-   ```powershell
-   $secret = mix phx.gen.secret
-   ```
-   ```powershell
-   Add-Content .env "SECRET_KEY_BASE=$secret"
-   ```
-
-3. Build & Start the Docker containers
+2. Start the application
 ```bash
 docker-compose up --build
 ```
 
-or if you wish to run Docker Compose in detached mode:
-```bash
-docker-compose up -d --build
-```
+3. Access the application at http://localhost:4000
 
-4. Create and migrate the database (in another terminal)
-```bash
-docker-compose exec app mix ecto.create
-```
-```bash
-docker-compose exec app mix ecto.migrate
-```
+That's it! The application will automatically:
+- Set up all necessary dependencies
+- Configure the database
+- Start the Phoenix server
 
-5. Access the application at http://localhost:4000
-
-6. Cleanup (remove all containers, networks and volumes):
+When you are done testing, you can do the cleanup (remove all containers, networks and volumes):
 ```bash
 docker-compose down -v
 ```
 
-7. To test out the functionalities, you can open up two or more browser windows side to side and try inputting text in one or the other
+Note: To test out the functionalities, you can open up two or more browser windows side to side and try inputting text in one or the other
 
 ## Local development setup
 
