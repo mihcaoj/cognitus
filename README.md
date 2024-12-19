@@ -27,7 +27,7 @@ CognitUs is a real-time collaborative text editor built with the Phoenix Framewo
 
 If running with Docker, you will need:
 - Docker (https://www.docker.com/get-started)
-- Docker Compose (https://docs.docker.com/compose/install/) - Usually included w/Docker Desktop
+- Docker Compose (https://docs.docker.com/compose/install/) - Usually included with Docker Desktop
 
 If running on your local machine, you will need to install:
 - Erlang (https://www.erlang.org/downloads) - Required for Elixir
@@ -61,7 +61,7 @@ When you are done testing, you can do the cleanup (remove all containers, networ
 docker-compose down -v
 ```
 
-Note: To test out the functionalities, you can open up two or more browser windows side to side and try inputting text in one or the other
+Note: To test out the functionalities, you can open up two or more browser windows side to side and try inputting text in one or the other.
 
 ## Local development setup
 
@@ -73,7 +73,39 @@ git clone https://github.com/mihcaoj/cognitus
 cd cognitus
 ```
 
-2. Install dependencies
+2. Make the setup script executable
+```bash
+chmod +x setup.sh
+```
+
+3. Run the setup script:
+```bash
+./setup.sh
+```
+
+4. Access the application at http://localhost:4000
+
+Note: To test out the functionalities, you can open up two or more browser windows side to side and try inputting text in one or the other.
+
+## Manual Setup (if you prefer not to use the script)
+
+If you prefer to set up manually or the script doesn't work for your environment:
+
+1. Clone the repo
+```bash
+git clone https://github.com/mihcaoj/cognitus
+```
+```bash
+cd cognitus
+```
+
+2. Install necessary packages and get the dependencies:
+```elixir
+mix local.hex --force
+```
+```elixir
+mix local.rebar --force
+```
 ```elixir
 mix deps.get
 ```
@@ -139,7 +171,7 @@ mix phx.server
 
 7. Access the application at http://localhost:4000
 
-8. To test out the functionalities, you can open up two or more browser windows side to side and try inputting text in one or the other
+Note: To test out the functionalities, you can open up two or more browser windows side to side and try inputting text in one or the other.
 
 ## Troubleshooting
 - If the database fails to start, ensure PostgreSQL is not running locally on port 5432
