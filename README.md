@@ -2,6 +2,8 @@
 
 CognitUs is a real-time collaborative text editor built with the Phoenix Framework.
 
+![App Screenshot](assets/misc/screenshot_example.png)
+
 ## Architecture
 
 - Phoenix LiveView for real-time communication
